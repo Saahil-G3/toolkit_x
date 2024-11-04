@@ -43,9 +43,9 @@ def activate_pma_session():
     	eg, credentials['url'], credentials['username'], credentials['password']									
     """
     credentials= {}
-    credentials['url']= 'http://10.100.76.62/core/'
-    credentials['username']= 'tmccomputpath'
-    credentials['password']= 'Z5XPLQ2I'
+    credentials['url']= 
+    credentials['username']= 
+    credentials['password']= 
     sessionID=core.connect(credentials['url'], credentials['username'], credentials['password'])
     
     return sessionID

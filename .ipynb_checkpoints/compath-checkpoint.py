@@ -62,7 +62,6 @@ class InitWSI():
 
         rescale = self.factor_mpp(target_mpp)
         scale = 1/rescale
-        
         return scale,rescale
         
     def get_mpp(self):
@@ -94,13 +93,58 @@ class InitWSI():
             (int(w), int(h))
         )
 
-    def get_slice_wsi_params(self, target_mpp, patch_size, overlap):
-
+    def set_slice_coordinates(self, target_mpp, patch_dims, overlap_dims, context_dims):
+        
         '''
         factor1 : factor to downsample from original_mpp to target_mpp
         factor2 : factor to downsample from original_mpp to downsample_mpp
         factor3 : factor to downsample from downsample_mpp to target_mpp
         '''
+        
+        self._target_mpp = target_mpp 
+        self._patch_dims = patch_dims
+        self._overlap_dims = overlap_dims
+        self._context_dims = context_dims
+        
+        self._region_dims = (self._patch_dims[0]+2*self._context_dims[0], 
+                             self._patch_dims[1]+2*self._context_dims[1]
+                            )
+        self._step_dims = (self._patch_dims[0] - (self._overlap_dims[0] + 2*self._context_dims[0]),
+                           self._patch_dims[1] - (self._overlap_dims[1] + 2*self._context_dims[1])
+                           )
+        
+        self._factor1 = self.factor_mpp(self._target_mpp)
+        self._level = self.wsi.get_best_level_for_downsample(self._factor1)
+        self._level_dims = self.wsi.level_dimensions[self._level]
+        x_lim, y_lim = self._level_dims
+        downsample_mpp = self.wsi.level_downsamples[self._level]*self.mpp
+        self._factor2 = self.factor_mpp(downsample_mpp)
+        self._factor3 = self.factor_mpp(target_mpp=target_mpp, source_mpp=downsample_mpp)
+        
+        self._downsample_region_dims =  (round_to_nearest_even(self._region_dims[0]*self._factor3),
+                                        round_to_nearest_even(self._region_dims[1]*self._factor3)
+                                       )
+        
+        self._downsample_step_dims = (round_to_nearest_even(self._step_dims[0]*self._factor3), 
+                                      round_to_nearest_even(self._step_dims[1]*self._factor3)
+                                     )
+        
+        self._coordinates = []
+        
+        for x in range(-self._context_dims[0], x_lim + self._context_dims[0], self._downsample_step_dims[0]):
+            if x+self._downsample_region_dims[0]>x_lim+self._context_dims[0]:
+                x = (x_lim+self._context_dims[0])-self._downsample_region_dims[0]
+            
+            for y in range(-self._context_dims[1], y_lim + self._context_dims[1], self._downsample_step_dims[1]):
+                if y+self._downsample_region_dims[1]>y_lim+self._context_dims[1]:
+                    y = (y_lim+self._context_dims[1])-self._downsample_region_dims[1]
+                    
+                x_scaled, y_scaled = int(np.floor(x*self._factor2)), int(np.floor(y*self._factor2))
+        
+                self._coordinates.append((x_scaled, y_scaled))
+    '''
+    def set_slice_coordinates(self, target_mpp, patch_size, overlap):
+
         self._target_mpp = target_mpp 
         self._patch_size = patch_size
         self._overlap = overlap
@@ -120,7 +164,7 @@ class InitWSI():
         #n_regions = len(range(0, x_lim, step_size))*len(range(0, y_lim, step_size))
         #pbar = tqdm(total=n_regions, desc='extracting regions')
         #regions = []
-        coordinates = []
+        self._coordinates = []
         for x in range(0, x_lim, self._step_size):
             if x+self._downsample_patch_size>x_lim:
                 x = x_lim-self._downsample_patch_size
@@ -128,23 +172,18 @@ class InitWSI():
                 if y+self._downsample_patch_size>y_lim:
                     y = y_lim-self._downsample_patch_size
                 x_scaled, y_scaled = int(np.floor(x*self._factor2)), int(np.floor(y*self._factor2))
-                coordinates.append((x_scaled, y_scaled))
+                self._coordinates.append((x_scaled, y_scaled))
                 
-                #region = self.get_region(x_scaled, y_scaled, downsample_patch_size, downsample_patch_size, level)
-                #regions.append(region)
-                #pbar.update(1)
-
-        self._coordinates = coordinates
-        
-        return 
+        return
+    '''
         
     def _get_sliced_region(self, idx):
-        
+    
         x , y = self._coordinates[idx]
-        region = self.get_region(x, y, self._downsample_patch_size, self._downsample_patch_size, self._level)
+        region = self.get_region(x, y, self._downsample_region_dims[0], self._downsample_region_dims[1], self._level)
         region = np.array(region)
-        region = cv2.resize(region, (self._patch_size, self._patch_size))
-        
+        region = cv2.resize(region, (self._region_dims[1], self._region_dims[0]))
+            
         return region
 
 
@@ -153,17 +192,9 @@ class SliceInferenceWSI(BaseDataset):
     def __init__(
         self,
         wsi: InitWSI,
-        target_mpp: float,
-        patch_size: int, 
-        overlap: int,    
     ):
         super(SliceInferenceWSI, self).__init__()
         self.wsi = wsi
-        self.target_mpp = target_mpp
-        self.patch_size = patch_size
-        self.overlap = overlap
-        
-        self.wsi.get_slice_wsi_params(self.target_mpp, self.patch_size, self.overlap)
         
     def __len__(self):
         return len(self.wsi._coordinates)

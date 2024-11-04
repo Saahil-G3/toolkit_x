@@ -1,6 +1,4 @@
-host = "http://10.100.76.46:9020"
-access_key_id = 'caib-pathadmin'
-secret_key = 'DI2WC8g/ttSFf+02KN1ADtbeX0PX9fJaCzjJdsqN'
+
 
 import boto3
 from tqdm.auto import tqdm

@@ -2,6 +2,13 @@ import cv2
 import geojson
 import numpy as np
 
+'''
+contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+hierarchy = [[[ 1, -1, -1, -1],  # Contour 0: [Next, Prev, First_Child, Parent]
+              [-1, -1, -1,  0],  # Contour 1: [Next, Prev, First_Child, Parent]
+              [-1, -1, -1,  0]]] # Contour 2: [Next, Prev, First_Child, Parent]
+'''
+
 def get_multipolygon_geojson_feature(contours, idx_map, label, color, scale_factor, show_pbar= True):
     geojson_polygons = []
 
