@@ -18,6 +18,10 @@ from shapely import wkt
 from shapely.wkt import loads
 from shapely.validation import make_valid
 
+def geom_to_geojson(geom):
+    geojson_feature = geojson.Feature(geometry=mapping(geom))
+    return geojson_feature
+    
 def wkt_to_geojson(wkt_string): 
     poly = loads(wkt_string)
     poly = make_valid(poly)

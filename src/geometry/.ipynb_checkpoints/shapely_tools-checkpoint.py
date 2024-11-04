@@ -18,6 +18,10 @@ from shapely import wkt
 from shapely.wkt import loads
 from shapely.validation import make_valid
 
+def geom_to_geojson(geom):
+    geojson_feature = geojson.Feature(geometry=mapping(geom))
+    return geojson_feature
+    
 def wkt_to_geojson(wkt_string): 
     poly = loads(wkt_string)
     poly = make_valid(poly)
@@ -46,8 +50,6 @@ def flatten_geoms(geom):
 def fix_geom(geom, max_attempts=10):
     attempts = 0
     while not geom.is_valid and attempts < max_attempts:
-        #print(f"Attempt {attempts + 1}: Polygon is invalid, trying to fix...")
-        
         geom = geom.buffer(0)
         
         if not geom.is_valid:

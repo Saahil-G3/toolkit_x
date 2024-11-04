@@ -10,6 +10,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as BaseDataset
 
+from misc import round_to_nearest_even
 
 class InitWSI():
     def __init__(self, wsi_path, mpp=None):

@@ -4,12 +4,13 @@ import numpy as np
 from pathlib import Path
 from openslide import OpenSlide
 from tiffslide import TiffSlide
-from random_utils import round_to_nearest_even
+
 
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as BaseDataset
 
+from misc import round_to_nearest_even
 
 class InitWSI():
     def __init__(self, wsi_path, mpp=None):

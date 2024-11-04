@@ -1,5 +1,3 @@
-
-
 import boto3
 from tqdm.auto import tqdm
 from pathlib import Path
