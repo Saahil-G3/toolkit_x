@@ -4,7 +4,7 @@ import numpy as np
 from pathlib import Path
 from openslide import OpenSlide
 from tiffslide import TiffSlide
-from random_utils import round_to_nearest_even
+
 
 from torchvision import transforms
 from torch.utils.data import DataLoader

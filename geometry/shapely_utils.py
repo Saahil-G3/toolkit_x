@@ -46,8 +46,6 @@ def flatten_geoms(geom):
 def fix_geom(geom, max_attempts=10):
     attempts = 0
     while not geom.is_valid and attempts < max_attempts:
-        #print(f"Attempt {attempts + 1}: Polygon is invalid, trying to fix...")
-        
         geom = geom.buffer(0)
         
         if not geom.is_valid:

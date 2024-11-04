@@ -53,7 +53,7 @@ def clear_output():
 def round_to_nearest_even(x):
     return round(x / 2) * 2
     
-def start_timer():
+def start_timer(return_time =False):
     
     """
     Example Usage:
@@ -65,24 +65,22 @@ def start_timer():
     
     global start_time
     start_time = time.time()
-    #return({'start_time':start_time})
-    return
-def stop_timer():
+    
+    if return_time:
+        return({'start_time':start_time})
+    
+def stop_timer(return_time=False, print_total_time=True):
     """
     Returns : Total time elapsed since last start_timer(), Current time
     """ 
     total_time = time.time()-start_time
-    print(f'Total time taken: {round(total_time/60,2)} mins')
 
-    return
+    if print_total_time:
+        print(f'Total time taken: {round(total_time/60,2)} mins')
+    
+    if return_time:
+        return({'total_time': round(total_time/60,2)})
 
-def create_folder(file_path):
-    if os.path.exists(file_path):
-        print('Directory already exists')
-    else:
-        os.makedirs(file_path)
-        print('Directory created successfully')
-        
 
 def get_memory_occupied(python_object):
     memory_usage=sys.getsizeof(python_object) / (1024 ** 2)

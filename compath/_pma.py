@@ -14,9 +14,9 @@ from json.decoder import JSONDecodeError
 
 import cv2
 import image_utils as iu
-from cpath import extract_tissue_without_fat, extract_tissue
-import ocv
-from shapely_utils import loads, remove_duplicates_valid, MultiPolygon, Polygon
+#from cpath import extract_tissue_without_fat, extract_tissue
+import geometry.ocv
+from geometry.shapely_utils import loads, remove_duplicates_valid, MultiPolygon, Polygon
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -36,23 +36,10 @@ def get_tray_format(slideRefs):
     
     return tray_format
 
-def activate_pma_session():
-    """
-    args:
-    	credentials: A dictionary containing pma_credentials i.e, url, username, password.
-    	eg, credentials['url'], credentials['username'], credentials['password']									
-    """
-    credentials= {}
-    credentials['url']= 
-    credentials['username']= 
-    credentials['password']= 
-    sessionID=core.connect(credentials['url'], credentials['username'], credentials['password'])
-    
-    return sessionID
 
 class PMA_Slide:
-    def __init__(self,slideRef):
-        self.sessionID = activate_pma_session()
+    def __init__(self,slideRef, sessionID=None):
+        self.sessionID = sessionID
         self.slideRef = slideRef
         self.slideName = slideRef.split('/')[-1].split('.')[0]
         self.total_layers = core.get_number_of_layers(slideRef, sessionID=self.sessionID)
@@ -172,7 +159,7 @@ class PMA_Slide:
 
         return mask_status_dict
         
-    def get_tissue_mask_without_fat(self, filter_area=1, upload=True, return_output=False, target_mpp=2):
+    def _get_tissue_mask_without_fat(self, filter_area=1, upload=True, return_output=False, target_mpp=2):
         """
         
         filter_area = 1000000 (For Node)
@@ -184,7 +171,7 @@ class PMA_Slide:
         scale, rescale = iu.scale_mpp(self.mpp, target_mpp)
         wsi_thumbnail = self.get_wsi(target_mpp)
         tissue_mask = extract_tissue_without_fat(np.array(wsi_thumbnail))
-        #tissue_mask = cv2.resize(tissue_mask, self.pixel_dimensions)
+        tissue_mask = cv2.resize(tissue_mask, self.pixel_dimensions)
         tissue_contours, hierarchy = ocv.get_contours(tissue_mask)
         master_wkt_list = ocv.process_contour_hierarchy(tissue_contours, hierarchy, self.mpp, rescale_factor = rescale)
         
@@ -228,7 +215,7 @@ class PMA_Slide:
         if return_output:
             return master_wkt_list, tissue_mask
 
-    def get_tissue_mask(self, filter_area=1, upload=True, return_output=False, target_mpp=2):
+    def _get_tissue_mask(self, filter_area=1, upload=True, return_output=False, target_mpp=2):
         '''
         args:
             target_mpp: mpp at which the wsi is to be extracted from pma.
@@ -336,7 +323,7 @@ class PMA_Slide:
                                            x=x, y=y,
                                            width=w, height=h,
                                            scale=1,
-                                           sessionID=activate_pma_session(),
+                                           sessionID=self.sessionID,
                                            format='jpg',
                                            quality=100)
                           )
@@ -502,7 +489,7 @@ class PMA_Slicer:
                                                   x=i, y=j,
                                                   width=x_patch_rescaled, height=y_patch_rescaled,
                                                   scale=1,
-                                                  sessionID=activate_pma_session(),
+                                                  sessionID=self.sessionID,
                                                   format='jpg',
                                                   quality=100)
                                  )
@@ -602,7 +589,7 @@ class PMA_Slicer:
                                                   x=i, y=j,
                                                   width=x_patch_rescaled, height=y_patch_rescaled,
                                                   scale=scale_factor,
-                                                  sessionID=activate_pma_session(),
+                                                  sessionID=self.sessionID,
                                                   format='jpg',
                                                   quality=100)
                                  )
