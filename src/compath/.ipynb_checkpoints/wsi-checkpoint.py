@@ -106,6 +106,7 @@ class InitWSI():
         self._patch_dims = patch_dims
         self._overlap_dims = overlap_dims
         self._context_dims = context_dims
+        self._shift_dims = (self._context_dims[0]+self._overlap_dims[0], self._context_dims[1]+self._overlap_dims[1])
         
         self._region_dims = (self._patch_dims[0]+2*self._context_dims[0], 
                              self._patch_dims[1]+2*self._context_dims[1]

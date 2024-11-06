@@ -10,32 +10,41 @@ hierarchy = [[[ 1, -1, -1, -1],  # Contour 0: [Next, Prev, First_Child, Parent]
               [-1, -1, -1,  0],  # Contour 1: [Next, Prev, First_Child, Parent]
               [-1, -1, -1,  0]]] # Contour 2: [Next, Prev, First_Child, Parent]
 '''
-   
-def get_shapely_poly(contours, hierarchy, scale_factor=1, shift_x=0, shift_y=0):
+
+def get_shapely_poly(contours, hierarchy, scale_factor=1, shift_x=0, shift_y=0, process_hierarchy=True):
 
     assert len(contours)>0, "No contours to process"
     polys = []
-    idx_map = get_idx_map(contours, hierarchy)
-    for outer_idx, inner_idxs in idx_map.items():
-        outer_contour = contours[outer_idx]
-        if outer_contour.shape[0]<5:
-            continue
-        outer_contour = [((point[0][0]*scale_factor)+shift_x, (point[0][1]*scale_factor+shift_y)) for point in outer_contour]
+
+    if process_hierarchy:
+        idx_map = get_idx_map(contours, hierarchy)
         
-        holes = [] 
-        if len(inner_idxs)>0:
-            for inner_idx in inner_idxs:
-                inner_contour = contours[inner_idx]
-                if inner_contour.shape[0]<5:
-                    continue
-                inner_contour = [((point[0][0]*scale_factor)+shift_x, (point[0][1]*scale_factor+shift_y)) for point in inner_contour]
-                holes.append(inner_contour)
-               
-        poly = Polygon(shell=outer_contour, holes=holes)
-        polys.append(poly)
+        for outer_idx, inner_idxs in idx_map.items():
+            outer_contour = contours[outer_idx]
+            if outer_contour.shape[0]<4:
+                continue
+            outer_contour = [((point[0][0]*scale_factor)+shift_x, (point[0][1]*scale_factor+shift_y)) for point in outer_contour]
+            
+            holes = [] 
+            if len(inner_idxs)>0:
+                for inner_idx in inner_idxs:
+                    inner_contour = contours[inner_idx]
+                    if inner_contour.shape[0]<4:
+                        continue
+                    inner_contour = [((point[0][0]*scale_factor)+shift_x, (point[0][1]*scale_factor+shift_y)) for point in inner_contour]
+                    holes.append(inner_contour)
+                   
+            poly = Polygon(shell=outer_contour, holes=holes)
+            polys.append(poly)
+    else:
+        for contour in contours:
+            if contour.shape[0]<4:
+                continue
+            contour = [((point[0][0]*scale_factor)+shift_x, (point[0][1]*scale_factor+shift_y)) for point in contour]
+            poly = Polygon(contour)
+            polys.append(poly)
         
     return polys
-
 
 def get_multipolygon_geojson_feature(contours, idx_map, label, color, scale_factor, show_pbar= True):
     geojson_polygons = []
