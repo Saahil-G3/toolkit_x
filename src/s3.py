@@ -1,7 +1,7 @@
 import boto3
-from tqdm.auto import tqdm
 from pathlib import Path
-import load
+from tqdm.auto import tqdm
+from load import load_pickle, save_pickle
 
 def download_caib_slide(slide_path, bucket_name='caib-wsi', caib_keys_path=Path('caib-keys.pkl')):
     s3=get_s3_object()
@@ -10,10 +10,10 @@ def download_caib_slide(slide_path, bucket_name='caib-wsi', caib_keys_path=Path(
     else:
         
         if caib_keys_path.exists():
-            keys=load.load_pickle(caib_keys_path)
+            keys=load_pickle(caib_keys_path)
         else:
             keys = get_keys_from_bucket(bucket_name)
-            load.save_pickle(caib_keys_path, keys)
+            save_pickle(caib_keys_path, keys)
         
         print('Downloading Slide')
         for key in keys:

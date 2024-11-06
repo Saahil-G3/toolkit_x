@@ -4,19 +4,26 @@ import random
 import geojson
 import numpy as np
 from tqdm.auto import tqdm
-from shapely.geometry import box
 
 from shapely.geometry import (
-    LineString, Polygon, MultiPolygon, MultiLineString, Point, MultiPoint, 
-    GeometryCollection, LinearRing
+    box,
+    LineString,
+    Polygon,
+    MultiPolygon,
+    MultiLineString,
+    Point,
+    MultiPoint,
+    GeometryCollection,
+    LinearRing,
 )
 
 from shapely.geometry import shape as Shape
 from shapely.geometry import mapping
-#from shapely.ops import unary_union
+# from shapely.ops import unary_union
 from shapely import wkt
 from shapely.wkt import loads
 from shapely.validation import make_valid
+
 
 def geom_to_geojson(geom):
     geojson_feature = geojson.Feature(geometry=mapping(geom))
