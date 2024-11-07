@@ -13,10 +13,11 @@ from torch.utils.data import Dataset as BaseDataset
 from misc import round_to_nearest_even
 
 class InitWSI():
-    def __init__(self, wsi_path, mpp=None):
+    def __init__(self, wsi_path, tissue_geom=None, mpp=None):
 
         self.wsi_path = Path(wsi_path)
         self.wsi = OpenSlide(self.wsi_path)
+        self.tissue_geom = tissue_geom
         self.mpp = mpp
         
         if self.wsi.level_count==1:
@@ -94,7 +95,7 @@ class InitWSI():
             (int(w), int(h))
         )
 
-    def set_slice_coordinates(self, target_mpp, patch_dims, overlap_dims, context_dims):
+    def set_slice_wsi_coordinates(self, target_mpp, patch_dims, overlap_dims, context_dims):
         
         '''
         factor1 : factor to downsample from original_mpp to target_mpp

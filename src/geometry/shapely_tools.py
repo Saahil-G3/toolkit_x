@@ -197,8 +197,8 @@ def get_background(geom):
     background=bounding_box.difference(geom)
     return background
 
-def get_box(x, y, width, height):
-    return box(x, y, x + width, y + height)
+def get_box(x, y, height, width):
+    return box(x, y, x + height, y + width)
 
 def validate_and_repair(polygon):
     if not polygon.is_valid:
