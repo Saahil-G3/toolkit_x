@@ -1,8 +1,8 @@
 import numpy as np
 
 class InitWSI:
-    def __init__(self):
-        pass
+    def __init__(self, tissue_geom=None):
+        self.tissue_geom = tissue_geom
 
     def get_dims_at_mpp(self, target_mpp):
         scale, rescale = self.scale_mpp(target_mpp)
