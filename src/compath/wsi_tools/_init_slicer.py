@@ -2,7 +2,7 @@ from cv2 import resize
 from numpy import array
 from misc import round_to_nearest_even
 
-class InitSlicer:
+class InitSlicer():
     def __init__(self, wsi):
         
         self.wsi = wsi

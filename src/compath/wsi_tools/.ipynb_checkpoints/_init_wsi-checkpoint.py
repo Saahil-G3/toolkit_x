@@ -1,6 +1,6 @@
 import numpy as np
 
-class InitWSI:
+class InitWSI():
     def __init__(self, tissue_geom=None):
         self.tissue_geom = tissue_geom
 

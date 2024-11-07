@@ -8,7 +8,8 @@ class TiffSlideWSI(InitWSI):
         InitWSI.__init__(self, tissue_geom)
         
         self.wsi_type = 'TiffSlide'
-        self._wsi = TiffSlide(wsi_path)
+        self._wsi_path = wsi_path
+        self._wsi = TiffSlide(self._wsi_path)
         self.dims = self._wsi.dimensions
         self.level_count = self.get_level_count()
         self._mpp_x = self._wsi.properties.get('tiffslide.mpp-x')
