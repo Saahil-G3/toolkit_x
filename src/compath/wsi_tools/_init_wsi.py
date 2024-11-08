@@ -26,3 +26,7 @@ class InitWSI():
         rescale = self.factor_mpp(target_mpp)
         scale = 1 / rescale
         return scale, rescale
+
+    @staticmethod
+    def round_to_nearest_even(x):
+        return round(x / 2) * 2

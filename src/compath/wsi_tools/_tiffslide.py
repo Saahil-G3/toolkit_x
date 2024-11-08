@@ -1,7 +1,6 @@
 from tiffslide import TiffSlide
 
 from ._init_wsi import InitWSI
-from misc import round_to_nearest_even
 
 class TiffSlideWSI(InitWSI):
     def __init__(self, wsi_path, tissue_geom=None):
@@ -46,25 +45,32 @@ class TiffSlideWSI(InitWSI):
     def _get_slice_wsi_coordinates(self, slice_params):
         
         coordinates = []
-    
+
         x_lim, y_lim = slice_params["level_dims"]
         extraction_dims_at_level = slice_params["extraction_dims_at_level"]
         stride_dims_at_level = slice_params["stride_dims_at_level"]
         context_dims = slice_params["context_dims"]
         factor2 = slice_params["factor2"]
-    
-        for x in range(-context_dims[0], x_lim + context_dims[0], stride_dims_at_level[0]):
-            if x + extraction_dims_at_level[0] > x_lim + context_dims[0]:
-                x = (x_lim + context_dims[0]) - extraction_dims_at_level[0]
-    
-            for y in range(-context_dims[1], y_lim + context_dims[1], stride_dims_at_level[1]):
-                if y + extraction_dims_at_level[1] > y_lim + context_dims[1]:
-                    y = (y_lim + context_dims[1]) - extraction_dims_at_level[1]
-    
-                x_scaled, y_scaled = int(round_to_nearest_even(x * factor2)), int(
-                    round_to_nearest_even(y * factor2)
-                )
-    
+        
+        max_x = x_lim + context_dims[0]
+        max_y = y_lim + context_dims[1]
+        
+        scaled_stride_x = stride_dims_at_level[0] * factor2
+        scaled_stride_y = stride_dims_at_level[1] * factor2
+        scaled_extraction_x = extraction_dims_at_level[0] * factor2
+        scaled_extraction_y = extraction_dims_at_level[1] * factor2
+        
+        max_x_adj = max_x - extraction_dims_at_level[0]
+        max_y_adj = max_y - extraction_dims_at_level[1]
+        
+        for x in range(-context_dims[0], max_x, stride_dims_at_level[0]):
+            x_clipped = min(x, max_x_adj)
+            x_scaled = int(self.round_to_nearest_even(x_clipped * factor2))
+        
+            for y in range(-context_dims[1], max_y, stride_dims_at_level[1]):
+                y_clipped = min(y, max_y_adj)
+                y_scaled = int(self.round_to_nearest_even(y_clipped * factor2))
+        
                 coordinates.append((x_scaled, y_scaled))
     
         return coordinates

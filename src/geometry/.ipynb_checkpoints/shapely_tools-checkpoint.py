@@ -4,9 +4,9 @@ import random
 import geojson
 import numpy as np
 from tqdm.auto import tqdm
+from shapely.geometry import box as Box
 
 from shapely.geometry import (
-    box,
     LineString,
     Polygon,
     MultiPolygon,
@@ -23,7 +23,8 @@ from shapely.geometry import mapping
 from shapely import wkt
 from shapely.wkt import loads
 from shapely.validation import make_valid
-
+from shapely.strtree import STRtree
+from shapely.prepared import prep as prep_geom_for_query
 
 def geom_to_geojson(geom):
     geojson_feature = geojson.Feature(geometry=mapping(geom))
@@ -34,25 +35,6 @@ def wkt_to_geojson(wkt_string):
     poly = make_valid(poly)
     geojson_feature = geojson.Feature(geometry=mapping(poly))
     return geojson_feature
-
-def flatten_geoms(geom):
-    """
-    Flatten a list of geometries, ensuring that all elements are Polygons.
-    """
-    flat_geoms = []
-    if isinstance(geom, MultiPolygon):
-        for geom in geom.geoms:
-            flat_geoms.append(geom)
-    elif isinstance(geom, Polygon):
-        flat_geoms.append(geom)
-    elif isinstance(geom, GeometryCollection):
-        for geom in geom.geoms:
-            flat_geoms.append(geom)
-    else:
-        print(f"{geom.geom_type}")
-        flat_geoms.append(geom)
-            
-    return flat_geoms
 
 def fix_geom(geom, max_attempts=10):
     attempts = 0
@@ -193,12 +175,12 @@ def get_geoms_from_mask(mask, rescale):
 
 def get_background(geom):
     bounds=geom.bounds
-    bounding_box=box(bounds[0] - 1, bounds[1] - 1, bounds[2] + 1, bounds[3] + 1)
+    bounding_box=Box(bounds[0] - 1, bounds[1] - 1, bounds[2] + 1, bounds[3] + 1)
     background=bounding_box.difference(geom)
     return background
 
 def get_box(x, y, height, width):
-    return box(x, y, x + height, y + width)
+    return Box(x, y, x + height, y + width)
 
 def validate_and_repair(polygon):
     if not polygon.is_valid:
