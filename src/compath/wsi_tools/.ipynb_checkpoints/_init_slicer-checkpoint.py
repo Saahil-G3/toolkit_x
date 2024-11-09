@@ -2,7 +2,7 @@ from geometry.shapely_tools import prep_geom_for_query, get_box
 from tqdm.auto import tqdm
 
 class InitSlicer():
-    def __init__(self, wsi, tissue_geom = None):
+    def __init__(self, wsi, tissue_geom = None, sample_using_tissue_geom = False):
         
         self.wsi = wsi
         self.sph = {}  # Slice Parameters History
@@ -10,10 +10,37 @@ class InitSlicer():
         self.set_params_init = False
         self.recent_slice_key = None
         self.tissue_geom = tissue_geom
-
+        self.sample_using_tissue_geom = sample_using_tissue_geom
+        
+        if self.tissue_geom is not None:
+            self.sample_using_tissue_geom = True
+        else:
+            if self.sample_using_tissue_geom:
+                raise ValueError("Sampling with tissue geometry cannot be done because 'tissue_geom' is None.")
+        
     def set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
+        self.sample_using_tissue_geom = True
+        
+    def set_slicer(self, slice_key=None):
+        if not self.set_params_init:
+            raise ValueError("No slice parameters have been initialized")
+            
+        if slice_key is None:
+            self.slice_key = self.recent_slice_key
+        else:
+            self.slice_key = slice_key
+
+        if self.sample_using_tissue_geom:
+            self.params = self.sph[self.slice_key]["params"]
+            self.n_contained_coordinates = len(self.sph[self.slice_key]["filtered_coordinates"]["contained_coordinates"])
+            self.n_boundary_coordinates = len(self.sph[self.slice_key]["filtered_coordinates"]["boundary_coordinates"])
+            self.total_samples = self.n_contained_coordinates+self.n_boundary_coordinates
+            self.filtered_index = -1
+        else:
+            self.params = self.sph[self.slice_key]["params"]
+            self.total_samples = len(self.sph[self.slice_key]["coordinates"])
 
     def set_params(
         self,
@@ -65,7 +92,7 @@ class InitSlicer():
         # Use tqdm only if show_progress is True
         iterator = coordinates
         if show_progress:
-            iterator = tqdm(coordinates, desc='Filtering coordinates->')
+            iterator = tqdm(coordinates, desc='Filtering coordinates')
     
         for x, y in iterator:
             box = get_box(x, y, box_width, box_height)
@@ -80,7 +107,8 @@ class InitSlicer():
             "contained_coordinates": contained_coordinates,
             "boundary_coordinates": boundary_coordinates,
         }
-
+        
+        self.sample_using_tissue_geom = True
 
     def _set_params(self, slice_key):
         """

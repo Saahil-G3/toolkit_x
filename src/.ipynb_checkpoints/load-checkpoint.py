@@ -43,6 +43,7 @@ class H5:
 
         return data
 
+h5 = H5()
 
 def save_yaml(data, path):
     """
