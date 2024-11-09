@@ -33,8 +33,7 @@ class Slicer(BaseDataset, InitSlicer):
                 )
         else:
             return self._get_region_from_coordinates(idx)
-
-                
+ 
     def get_dataloader(
         self,
         batch_size=4,
@@ -58,7 +57,7 @@ class Slicer(BaseDataset, InitSlicer):
         self.merge_coordinates.append(coordinates)
         region = self.get_slice_region(self.params, coordinates)
         region = pil_to_tensor(region)
-        region = resize(region, self.params["extraction_dims"]).to(self.device)
+        region = resize(region, self.params["extraction_dims"])
         return region
         
     def _get_region_from_coordinates(self, idx):
@@ -66,7 +65,7 @@ class Slicer(BaseDataset, InitSlicer):
         self.merge_coordinates.append(coordinates)
         region = self.get_slice_region(self.params, coordinates)
         region = pil_to_tensor(region)
-        region = resize(region, self.params["extraction_dims"]).to(self.device)
+        region = resize(region, self.params["extraction_dims"])
         return region
         
     def _get_region_from_boundary_coordinates(self, idx):
@@ -77,7 +76,7 @@ class Slicer(BaseDataset, InitSlicer):
     
         region = self.get_slice_region(self.params, coordinates)
         region = pil_to_tensor(region)
-        region = resize(region, self.params["extraction_dims"]).to(self.device)
+        region = resize(region, self.params["extraction_dims"])
     
         box = get_box(
             coordinates[0],
@@ -100,13 +99,9 @@ class Slicer(BaseDataset, InitSlicer):
             holes.extend(polygon_coordinates[1])
     
         mask = torch.zeros(mask_dims, dtype=torch.uint8, device=self.device)
-    
         for polygon in exterior:
             mask += fill_polygon(polygon, mask_dims, device=self.device)
-    
         for polygon in holes:
             mask -= fill_polygon(polygon, mask_dims, device=self.device)
-    
-        region *= mask
-    
-        return region
+            
+        return region, mask
