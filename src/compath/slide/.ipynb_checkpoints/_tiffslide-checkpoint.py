@@ -16,7 +16,7 @@ class TiffSlideWSI(InitWSI):
         self.mpp = self._mpp_x
         if self._mpp_x != self._mpp_y:
             warnings.warn("mpp_x is not equal to mpp_y.", UserWarning)
-
+    
     def get_thumbnail_at_mpp(self, target_mpp=50):
         return self._wsi.get_thumbnail(self.get_dims_at_mpp(target_mpp))
 

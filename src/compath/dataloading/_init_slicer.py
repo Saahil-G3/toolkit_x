@@ -36,11 +36,11 @@ class InitSlicer():
             self.params = self.sph[self.slice_key]["params"]
             self.n_contained_coordinates = len(self.sph[self.slice_key]["filtered_coordinates"]["contained_coordinates"])
             self.n_boundary_coordinates = len(self.sph[self.slice_key]["filtered_coordinates"]["boundary_coordinates"])
-            self.total_samples = self.n_contained_coordinates+self.n_boundary_coordinates
+            #self.total_samples = self.n_contained_coordinates+self.n_boundary_coordinates
             self.filtered_index = -1
         else:
             self.params = self.sph[self.slice_key]["params"]
-            self.total_samples = len(self.sph[self.slice_key]["coordinates"])
+            #self.total_samples = len(self.sph[self.slice_key]["coordinates"])
 
     def set_params(
         self,
@@ -171,8 +171,7 @@ class InitSlicer():
             params["level"],
         )
         return region
-    
-        
+            
     @staticmethod
     def round_to_nearest_even(x):
         return round(x / 2) * 2

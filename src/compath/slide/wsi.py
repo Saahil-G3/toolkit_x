@@ -9,4 +9,3 @@ class WSIManager():
             return TiffSlideWSI(self.wsi_path)
 
         
-        
