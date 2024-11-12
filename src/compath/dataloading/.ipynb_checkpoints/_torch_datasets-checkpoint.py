@@ -142,21 +142,22 @@ class _DatasetFiltered(_CPathDataset):
         region = self.slicer.get_slice_region(self.slicer.params, coordinate)
         region = pil_to_tensor(region)
         region = resize(region, self.slicer.params["extraction_dims"])
-
+        
         if is_boundary:
             if self.data_loading_mode == "cpu":
-                mask = self.get_region_mask_cpu(coordinate)
-                mask = torch.from_numpy(mask)
+                mask = torch.from_numpy(self.get_region_mask_cpu(coordinate))
             elif self.data_loading_mode == "gpu":
                 mask = self.get_region_mask_gpu(coordinate)
-                region = region.to(self.slicer.device)
             else:
                 raise ValueError(
                     f"loading mode {self.data_loading_mode} not implemented, choose between 'cpu' or 'gpu'"
                 )
-
         else:
-            mask_dims = self.slicer.params["extraction_dims"]
-            mask = torch.ones(mask_dims, dtype=torch.uint8)
+            mask = torch.ones(
+                self.slicer.params["extraction_dims"],
+                dtype=torch.uint8,
+                device=self.slicer.device if self.data_loading_mode == "gpu" else "cpu",
+            )
+
 
         return region, mask
