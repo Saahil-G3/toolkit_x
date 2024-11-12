@@ -1,0 +1,56 @@
+metadata:
+  tissue:
+    path: "weights/tissue.pt"
+    class_map:
+      bg: 0
+      adipose: 1
+      non_adipose: 2
+    mpp: 4
+    model_config:
+      architecture: 'Unet++'
+      encoder_name: "resnet18"
+      encoder_weights: "imagenet"
+      in_channels: 3
+      classes: 3
+
+  folds:
+    path: "weights/folds.pt"
+    class_map:
+      bg: 0
+      fold: 1
+    mpp: 2
+    model_config:
+      architecture: 'Unet++'
+      encoder_name: "resnet18"
+      encoder_weights: "imagenet"
+      in_channels: 3
+      classes: 2
+
+  focus:
+    path: "weights/blur.pt"
+    class_map:
+      bg: 0
+      level_1: 1
+      level_2: 2
+      level_3: 3
+      level_4: 4
+    mpp: 2
+    model_config:
+      architecture: 'Unet++'
+      encoder_name: "resnet18"
+      encoder_weights: "imagenet"
+      in_channels: 3
+      classes: 5
+
+  pen:
+    path: "weights/pen.pt"
+    class_map:
+      bg: 0
+      pen_mark: 1
+    mpp: 16
+    model_config:
+      architecture: 'Unet++'
+      encoder_name: "resnet34"
+      encoder_weights: "imagenet"
+      in_channels: 3
+      classes: 2

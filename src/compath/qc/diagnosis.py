@@ -2,7 +2,7 @@ import geojson
 from cv2 import medianBlur
 from tqdm.auto import tqdm
 import torch
-
+from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -14,18 +14,32 @@ from geometry.cv2_tools import get_contours, get_shapely_poly
 from geometry.shapely_tools import MultiPolygon, loads, geom_to_geojson
 from image_tools import get_rgb_colors, get_cmap
 from compath.dataloading.slicer import Slicer
-from load import h5, save_geojson, load_yaml
+from load import h5, save_geojson
 
+from compath.slide.wsi import WSIManager
+
+from ._model_metadata import get_metadata
 
 class Diagnosis(Slicer):
-    def __init__(self, wsi, device):
-        Slicer.__init__(self, wsi=wsi, device=device)
-        self.metadata = load_yaml("_model_metadata.yaml")["metadata"]
-        self.qc_folder = Path(f"{wsi._wsi_path.parent}/qc")
-        self.qc_folder.mkdir(exist_ok=True)
-        self._set_results_path()
+    def __init__(self):
         self.has_tissue_mask = False
         self.data_loading_mode = "cpu"
+        
+    def initialise_wsi(self, wsi_path, wsi_type, device):
+        wsi = WSIManager(wsi_path).get_wsi_object(wsi_type)
+        Slicer.__init__(self, wsi=wsi, device=device)
+        self.qc_folder = Path(f"{self.wsi._wsi_path.parent}/qc")
+        self.qc_folder.mkdir(exist_ok=True)
+        
+        metadata = get_metadata()
+        for key in list(metadata.keys()):
+            results_path = {
+                "geojson": Path(f"{self.qc_folder}/{key}.geojson"),
+                "h5": Path(f"{self.qc_folder}/{key}.h5"),
+                }
+            metadata[key]["results_path"] = results_path
+            #metadata[key].pop('results_path', None)
+        self.metadata = metadata
 
         if Path(f"{self.qc_folder}/tissue.h5").exists():
             tissue_wkt = h5.load_wkt_dict(Path(f"{self.qc_folder}/tissue.h5"))[
@@ -69,12 +83,6 @@ class Diagnosis(Slicer):
             geojson_feature_collection,
             self.metadata[model_type]["results_path"]["geojson"],
         )
-    def diagnose_wsi(self, patch_size=1024, model_run_sequence=None, num_workers=4):
-        model_run_sequence = ["tissue", "folds", "pen", "focus"]
-        for model_type in model_run_sequence:
-            self.run_model_inference(
-                model_type, patch_size=patch_size, num_workers=num_workers
-            )
 
     def run_model_inference(
         self,
@@ -177,6 +185,7 @@ class Diagnosis(Slicer):
                     print(f"Model '{model_type}' is already loaded.")
             else:
                 raise KeyError(f"Model '{model_type}' not found in metadata.")
+                
     def _compile_model_results(self, model_run_sequence=None):
         if model_run_sequence is None:
             model_run_sequence = list(self.metadata.keys())
@@ -199,9 +208,13 @@ class Diagnosis(Slicer):
         for model_type in model_run_sequence:
             temp_dict = {}
             wkt_dict = h5.load_wkt_dict(self.metadata[model_type]["results_path"]["h5"])
-            mgeom = loads(wkt_dict["combined"])
-            temp_dict["model_type"] = name_map[model_type]
-            temp_dict["area"] = round(mgeom.area*(self.wsi.mpp**2),2 )
+            if "combined" in wkt_dict.keys(): 
+                mgeom = loads(wkt_dict["combined"])
+                temp_dict["model_type"] = name_map[model_type]
+                temp_dict["area"] = round(mgeom.area*(self.wsi.mpp**2),2 )
+            else:
+                temp_dict["model_type"] = name_map[model_type]
+                temp_dict["area"] = 0
         
             diagnose_statistics.append(temp_dict)
     
@@ -248,15 +261,6 @@ class Diagnosis(Slicer):
         model = model.eval().to(self.device)
         self.metadata[model_type]["model"] = model
 
-    def _set_results_path(self):
-
-        for key, value in self.metadata.items():
-            results_path = {
-                "geojson": Path(f"{self.qc_folder}/{key}.geojson"),
-                "h5": Path(f"{self.qc_folder}/{key}.h5"),
-            }
-            self.metadata[key]["results_path"] = results_path
-
     def _inference_logic(self, model_type, show_progress, batch_size, **args):
 
         with torch.inference_mode():
@@ -299,7 +303,8 @@ class Diagnosis(Slicer):
                         )
                         pred_dicts.append(pred_dict)
                     del preds_batch, batch
-
+        
+        del iterator
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
