@@ -17,31 +17,68 @@ from toolkit.geometry.shapely_tools import (
     get_polygon_coordinates_gpu,
 )
 from ._init_slicer import InitSlicer
+from toolkit.gpu_tools.torch import GpuManager
 from toolkit.compath.slide._tiffslide import TiffSlideWSI
 
 class Slicer(InitSlicer):
-    def __init__(self, wsi, device, tissue_geom=None, data_loading_mode="cpu"):
-        InitSlicer.__init__(self, wsi, tissue_geom=None)
+    def __init__(
+        self,
+        wsi,
+        gpu_id=0,
+        tissue_geom=None,
+        device_type="gpu",
+        data_loading_mode="cpu",
+        dataparallel=False,
+        dataparallel_device_ids=None,
+    ):
+        InitSlicer.__init__(
+            self,
+            wsi=wsi,
+            gpu_id=gpu_id,
+            tissue_geom=tissue_geom,
+            device_type=device_type,
+            dataparallel=dataparallel,
+            dataparallel_device_ids=dataparallel_device_ids,
+        )
+        self.coordinates_type = 'all_coordinates'
         self.data_loading_mode = data_loading_mode
         self.slice_key = None
-        self.device = device
 
     def set_tissue_geom(self, tissue_geom):
         """
         Overriding the parent's set_tissue_geom method, if needed.
         """
         super().set_tissue_geom(tissue_geom)
+        self.coordinates_type = 'tissue_contact_coordinates'
 
     def get_inference_dataloader(
         self,
-        coordinates_type,
+        coordinates_type = None,
         batch_size=2,
         shuffle=False,
         num_workers=0,
-        data_loading_mode="cpu",
         **kwargs,
     ):
-
+        '''
+        Creates a PyTorch DataLoader for inference based on specified coordinate types.
+        
+        Parameters:
+        - `coordinates_type` (str): Type of coordinates to use for data loading. Options:
+          - `'all_coordinates'`: Load all coordinates.
+          - `'tissue_contact_coordinates'`: Load only coordinates that contact tissue.
+        - `batch_size` (int, optional): Number of samples per batch to load. Default is 2.
+        - `shuffle` (bool, optional): Whether to shuffle the data at every epoch. Default is `False`.
+        - `num_workers` (int, optional): Number of subprocesses to use for data loading. If set to 0, data will be loaded in the main process. Default is 0.
+        - `**kwargs`: Additional arguments for `DataLoader`.
+        
+        Returns:
+        - `DataLoader`: A PyTorch DataLoader for inference.
+        
+        Notes:
+        - If the whole slide image type (`wsi.wsi_type`) is `"TiffSlide"` and `num_workers` is greater than 0, a custom worker initialization function `_worker_init_tiffslide` is used.
+        '''
+        if coordinates_type is None:
+            coordinates_type = self.coordinates_type
         dataset = _InferenceDataset(self, coordinates_type, self.data_loading_mode)
     
         if self.wsi.wsi_type == "TiffSlide" and num_workers > 0:
@@ -156,12 +193,13 @@ class Slicer(InitSlicer):
 
 class _InferenceDataset(BaseDataset):
     def __init__(
-        self, slicer, coordinates_type="all_coordinates", data_loading_mode="cpu"
+        self, slicer, coordinates_type, data_loading_mode="cpu"
     ):
+        self.slicer = slicer
         self.data_loading_mode = data_loading_mode
         self.coordinates_type = coordinates_type
         self.coordinates = self.slicer.sph[self.slicer.slice_key][coordinates_type]
-        self.params = self.slicer.sph[self.slicer.slice_key][params]
+        self.params = self.slicer.sph[self.slicer.slice_key]["params"]
         self.device = self.slicer.device
 
     def __len__(self):
@@ -170,15 +208,15 @@ class _InferenceDataset(BaseDataset):
     def __getitem__(self, idx):
         coordinate, is_boundary = self.coordinates[idx]
         region = pil_to_tensor(
-            self.slicer.get_slice_region(self.params, coordinate)
+            self.slicer.get_slice_region(coordinate, self.params)
         )
-        region = resize(region, self.extraction_dims)
+        region = resize(region, self.params["extraction_dims"])
 
         if is_boundary:
             mask = self._get_boundary_mask(coordinate)
         else:
             mask = torch.ones(
-                self.extraction_dims, dtype=torch.uint8, device=self.device
+                self.params["extraction_dims"], dtype=torch.uint8, device=self.device
             )
 
         return region, mask

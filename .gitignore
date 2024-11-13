@@ -1,4 +1,3 @@
-/src/compath/qc/weights/*
-\!/src/compath/qc/weights/.gitkeep
+toolkit/compath/qc/weights/
 **/.ipynb_checkpoints/
 __pycache__/

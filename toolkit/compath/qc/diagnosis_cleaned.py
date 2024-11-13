@@ -9,14 +9,15 @@ import matplotlib.pyplot as plt
 import torch
 import segmentation_models_pytorch as smp
 
-from load import h5, save_geojson
-from compath.slide.wsi import WSIManager
-from compath.dataloading.slicer import Slicer
-from image_tools import get_rgb_colors, get_cmap
-from geometry.cv2_tools import get_contours, get_shapely_poly
-from geometry.shapely_tools import MultiPolygon, loads, geom_to_geojson
+from toolkit.load import h5, save_geojson
+from toolkit.compath.slide.wsi import WSIManager
+from toolkit.compath.dataloading.slicer import Slicer
+from toolkit.image_tools import get_rgb_colors, get_cmap
+from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
+from toolkit.geometry.shapely_tools import MultiPolygon, loads, geom_to_geojson
 
 from ._model_metadata import get_metadata
+
 
 class Diagnosis(Slicer):
     def __init__(self):

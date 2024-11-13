@@ -184,27 +184,7 @@
         #save csv
         diagnose_statistics.to_csv(f"{self.qc_folder}/diagnose_statistics.csv", index = False)
 
-    def _load_and_store_model(self, model_type, config):
-        if config["architecture"] == "Unet++":
-            model = smp.UnetPlusPlus(
-                encoder_name=config["encoder_name"],
-                encoder_weights=config["encoder_weights"],
-                in_channels=config["in_channels"],
-                classes=config["classes"],
-            )
-
-        else:
-            raise ValueError(f"Architecture {config['architecture']} not implemented ")
-
-        model.load_state_dict(
-            torch.load(
-                self.metadata[model_type]["path"],
-                map_location=self.device,
-                weights_only=True,
-            )
-        )
-        model = model.eval().to(self.device)
-        self.metadata[model_type]["model"] = model
+    
 
     def _inference_logic(self, model_type, show_progress, batch_size, **args):
 

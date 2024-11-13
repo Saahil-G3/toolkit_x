@@ -1,9 +1,34 @@
 from tqdm.auto import tqdm
+
 from toolkit.geometry.shapely_tools import prep_geom_for_query, get_box
+from toolkit.gpu_tools.torch import GpuManager
 
-class InitSlicer:
-    def __init__(self, wsi, tissue_geom=None, sample_using_tissue_geom=False):
 
+class InitSlicer(GpuManager):
+    def __init__(
+        self,
+        wsi,
+        gpu_id=0,
+        tissue_geom=None,
+        device_type="gpu",
+        dataparallel=False,
+        dataparallel_device_ids=None,
+        sample_using_tissue_geom=False,
+    ):
+        GpuManager.__init__(
+            self,
+            gpu_id=gpu_id,
+            device_type=device_type,
+            dataparallel=dataparallel,
+            dataparallel_device_ids=dataparallel_device_ids,
+        )
+        
+        self.gpu_id = gpu_id
+        if self.device_type == "gpu":
+            self._set_gpu(self.gpu_id)
+        elif self.device_type == "cpu":
+            self.device = self._get_cpu()
+        
         self.wsi = wsi
         self.sph = {}  # Slice Parameters History
         self.default_slice_key = -1
@@ -149,7 +174,7 @@ class InitSlicer:
             self.round_to_nearest_even(stride_dims[1] * factor3),
         )
 
-    def get_slice_region(self, params, coordinates):
+    def get_slice_region(self, coordinates, params):
         region = self.wsi.get_region(
             coordinates[0],
             coordinates[1],

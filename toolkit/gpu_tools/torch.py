@@ -1,55 +1,68 @@
-import torch
+import warnings
 import subprocess
 
+import torch
 
-def get_gpu_count():
-    """Returns the number of available GPUs."""
-    return torch.cuda.device_count()
 
-def get_device(gpu_id):
-    """
-    Get a specific GPU device based on the provided gpu_id.
+class NoGpuDetected(Warning):
+    pass
 
-    Args:
-    gpu_id (int): The ID of the GPU device (e.g., 0 for the first GPU, 1 for the second GPU).
 
-    Returns:
-    torch.device: The PyTorch device object for the specified GPU.
-    """
-    if torch.cuda.is_available():
-        if gpu_id < 0 or gpu_id >= torch.cuda.device_count():
-            raise ValueError(
-                f"Invalid GPU ID {gpu_id}. Available GPU IDs: 0 to {torch.cuda.device_count() - 1}."
+class GpuManager:
+    def __init__(self, gpu_id=0, device_type="gpu", dataparallel=False, dataparallel_device_ids=None):
+        self.gpu_id = gpu_id
+        self.device_type = device_type
+        self.gpu_exists = torch.cuda.is_available()
+        self.gpu_count = torch.cuda.device_count()
+        self.dataparallel = dataparallel
+        self.dataparallel_device_ids = dataparallel_device_ids
+        if self.gpu_count > 0:
+            self.gpu_names = {}
+            for i in range(self.gpu_count):
+                self.gpu_names[i] = torch.cuda.get_device_name(i)
+
+            if self.dataparallel_device_ids is None:
+                self.dataparallel_device_ids = list(range(self.gpu_count))
+                
+        if self.device_type == "gpu":
+            self._set_gpu(self.gpu_id)
+        elif self.device_type == "cpu":
+            self.device = self._get_cpu()
+
+    def _get_gpu(self, gpu_id=0):
+        gpu = torch.device(f"cuda:{gpu_id}")
+        return gpu
+
+    def _get_cpu(self):
+        cpu = torch.device("cpu")
+        return cpu
+
+    def _set_gpu(self, gpu_id=0):
+        if self.gpu_exists and gpu_id < self.gpu_count:
+            self.device = self._get_gpu(gpu_id=gpu_id)
+        else:
+            self.device = self._get_cpu()
+            warnings.warn("Invalid GPU ID or No GPU detected, using CPU", NoGpuDetected)
+
+    def _get_free_gpu_memory(self, device_id=0):
+        try:
+            result = subprocess.check_output(
+                [
+                    "nvidia-smi",
+                    f"--query-gpu=memory.free,memory.total",
+                    f"--format=csv,nounits,noheader",
+                    f"--id={device_id}",
+                ],
+                encoding="utf-8",
             )
-        return torch.device(f"cuda:{gpu_id}")
-    else:
-        return torch.device("cpu")
-        # raise RuntimeError("CUDA is not available. No GPU devices found.")
+            for line in result.strip().split("\n"):
+                free_memory, total_memory = line.split(",")
+                free_memory = float(free_memory)
+                total_memory = float(total_memory)
+                percent_free = round((free_memory / total_memory) * 100, 2)
 
+                return percent_free
 
-def check_gpu_detection():
-    if torch.cuda.is_available():
-        print(f"{torch.cuda.device_count()} devices detected.")
-        for i in range(torch.cuda.device_count()):
-            print(f"GPU {i}: {torch.cuda.get_device_name(i)}")
-    else:
-        print("No GPUs detected.")
-
-
-def get_gpu_memory_info():
-    try:
-        result = subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=memory.free,memory.total", "--format=csv,nounits,noheader"],
-            encoding="utf-8",
-        )
-        print("GPU Memory Information:\n------------------------")
-        for i, line in enumerate(result.strip().split("\n")):
-            free_memory, total_memory = line.split(",")
-            free_memory = float(free_memory)
-            total_memory = float(total_memory)
-            percent_free = round((free_memory / total_memory) * 100, 2)
-
-            print(f"GPU {i}:\n Free: {percent_free} %, {round(free_memory / 1024, 2)} GB")
-            print(f" Occupied: {round(100 - percent_free, 2)} %, {round((total_memory - free_memory) / 1024, 2)} GB")
-    except subprocess.CalledProcessError as e:
-        print(f"Error: {e}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error: {e}")
+            return None
