@@ -1,2 +1,0 @@
-git ls-files | grep '.ipynb_checkpoints'
-git ls-files | grep '__pycache__'
