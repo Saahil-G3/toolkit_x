@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as BaseDataset
 
-from toolkit.geometry.geomtorch import (
+from toolkit.geometry.torch_tools import (
     resize,
     fill_polygon,
     pil_to_tensor,
@@ -17,29 +17,28 @@ from toolkit.geometry.shapely_tools import (
     get_polygon_coordinates_gpu,
 )
 from ._init_slicer import InitSlicer
-from toolkit.gpu_tools.torch import GpuManager
+from toolkit.gpu.torch import GpuManager
 from toolkit.compath.slide._tiffslide import TiffSlideWSI
 
 class Slicer(InitSlicer):
     def __init__(
         self,
-        wsi,
-        gpu_id=0,
+        gpu_id: int =0,
         tissue_geom=None,
-        device_type="gpu",
-        data_loading_mode="cpu",
-        dataparallel=False,
-        dataparallel_device_ids=None,
+        device_type: str ="gpu",
+        data_loading_mode: str ="cpu",
+        dataparallel: bool =False,
+        dataparallel_device_ids= None,
     ):
         InitSlicer.__init__(
             self,
-            wsi=wsi,
             gpu_id=gpu_id,
             tissue_geom=tissue_geom,
             device_type=device_type,
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
+        
         self.coordinates_type = 'all_coordinates'
         self.data_loading_mode = data_loading_mode
         self.slice_key = None
@@ -100,13 +99,13 @@ class Slicer(InitSlicer):
             )
         return dataloader
 
-    def set_slice_key(self, slice_key):
-        self.slice_key = slice_key
-
     def _worker_init_tiffslide(self, *args):
         self.wsi = TiffSlideWSI(
             wsi_path=self.wsi._wsi_path, tissue_geom=self.wsi.tissue_geom
         )
+        
+    def set_slice_key(self, slice_key):
+        self.slice_key = slice_key
 
     def get_region_mask_cpu(self, coordinate):
         origin = np.array([coordinate[0], coordinate[1]], dtype=np.float32)
@@ -200,6 +199,7 @@ class _InferenceDataset(BaseDataset):
         self.coordinates_type = coordinates_type
         self.coordinates = self.slicer.sph[self.slicer.slice_key][coordinates_type]
         self.params = self.slicer.sph[self.slicer.slice_key]["params"]
+        self.wsi_name = self.slicer.sph[self.slicer.slice_key]["wsi_name"]
         self.device = self.slicer.device
 
     def __len__(self):

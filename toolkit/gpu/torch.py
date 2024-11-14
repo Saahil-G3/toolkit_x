@@ -4,7 +4,7 @@ import subprocess
 import torch
 
 
-class NoGpuDetected(Warning):
+class NoGpuDetected(UserWarning):
     pass
 
 

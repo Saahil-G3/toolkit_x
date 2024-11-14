@@ -1,13 +1,14 @@
+from pathlib import Path
 from tqdm.auto import tqdm
 
+from toolkit.compath.slide.wsi import WSIManager
 from toolkit.geometry.shapely_tools import prep_geom_for_query, get_box
-from toolkit.gpu_tools.torch import GpuManager
+from toolkit.gpu.torch import GpuManager
 
 
 class InitSlicer(GpuManager):
     def __init__(
         self,
-        wsi,
         gpu_id=0,
         tissue_geom=None,
         device_type="gpu",
@@ -29,7 +30,6 @@ class InitSlicer(GpuManager):
         elif self.device_type == "cpu":
             self.device = self._get_cpu()
         
-        self.wsi = wsi
         self.sph = {}  # Slice Parameters History
         self.default_slice_key = -1
         self.set_params_init = False
@@ -45,6 +45,9 @@ class InitSlicer(GpuManager):
                     "Sampling with tissue geometry cannot be done because 'tissue_geom' is None."
                 )
 
+    def set_wsi(self, wsi_path, wsi_type):
+        self.wsi = WSIManager(wsi_path).get_wsi_object(wsi_type)
+        
     def set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
@@ -63,13 +66,13 @@ class InitSlicer(GpuManager):
 
     def set_params(
         self,
-        target_mpp,
+        target_mpp:float,
         patch_size,
         overlap_size,
         context_size,
         slice_key=None,
-        input_tuple=False,
-        show_progress=False,
+        input_tuple: bool =False,
+        show_progress: bool =False,
     ):
         self.set_params_init = True
         self.default_slice_key += 1
@@ -77,6 +80,7 @@ class InitSlicer(GpuManager):
         self.recent_slice_key = slice_key
         self.sph[slice_key] = {"params": {}}
         params = self.sph[slice_key]["params"]
+        self.sph[slice_key]["wsi_name"] = Path(self.wsi._wsi_path.name)
         params["target_mpp"] = target_mpp
 
         if input_tuple:
