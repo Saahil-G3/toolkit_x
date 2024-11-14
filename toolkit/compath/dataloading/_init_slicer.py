@@ -3,7 +3,7 @@ from tqdm.auto import tqdm
 
 from toolkit.compath.slide.wsi import WSIManager
 from toolkit.geometry.shapely_tools import prep_geom_for_query, get_box
-from toolkit.gpu.torch import GpuManager
+from toolkit.system.gpu.torch import GpuManager
 
 
 class InitSlicer(GpuManager):

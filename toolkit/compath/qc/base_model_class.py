@@ -4,8 +4,8 @@ from tqdm.auto import tqdm
 
 import torch
 
-from toolkit.load import h5, save_geojson
-from toolkit.image_tools import get_rgb_colors, get_cmap
+from toolkit.system.storage.load import h5, save_geojson
+from toolkit.vision.image_tools import get_rgb_colors, get_cmap
 
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
 from toolkit.geometry.torch_tools import median_blur

@@ -17,7 +17,6 @@ from toolkit.geometry.shapely_tools import (
     get_polygon_coordinates_gpu,
 )
 from ._init_slicer import InitSlicer
-from toolkit.gpu.torch import GpuManager
 from toolkit.compath.slide._tiffslide import TiffSlideWSI
 
 class Slicer(InitSlicer):

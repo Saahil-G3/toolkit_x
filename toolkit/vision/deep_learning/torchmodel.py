@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
 
-from toolkit.gpu.torch import GpuManager
-
+from toolkit.system.gpu.torch import GpuManager
 
 class Model(GpuManager):
     def __init__(
