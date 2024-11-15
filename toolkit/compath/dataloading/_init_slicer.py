@@ -114,7 +114,7 @@ class InitSlicer(GpuManager):
         if show_progress:
             iterator = tqdm(coordinates, desc="Filtering coordinates")
 
-        for x, y in iterator:
+        for (x, y), _ in iterator:
             box = get_box(x, y, box_width, box_height)
 
             if self.tissue_geom_prepared.intersects(box):
@@ -140,9 +140,11 @@ class InitSlicer(GpuManager):
         patch_dims = params["patch_dims"]
 
         params["shift_dims"] = (
-            context_dims[0] + overlap_dims[0],
-            context_dims[1] + overlap_dims[1],
+            context_dims[0] + overlap_dims[0]//2,
+            context_dims[1] + overlap_dims[1]//2,
         )
+        
+        params["shift_dims"] = (overlap_dims[0], overlap_dims[1])
 
         params["extraction_dims"] = (
             patch_dims[0] + 2 * context_dims[0],

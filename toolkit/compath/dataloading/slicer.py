@@ -1,3 +1,11 @@
+import logging
+# Set up logger
+logging.basicConfig(
+    filename='slicer_logs.txt',  # File where logs will be saved
+    level=logging.INFO,          # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+)
+
 import cv2
 import torch
 import numpy as np
@@ -106,16 +114,16 @@ class Slicer(InitSlicer):
     def set_slice_key(self, slice_key):
         self.slice_key = slice_key
 
-    def get_region_mask_cpu(self, coordinate):
+    def get_region_mask_cpu(self, coordinate, params):
         origin = np.array([coordinate[0], coordinate[1]], dtype=np.float32)
-        mask_dims = self.params["extraction_dims"]
-        scale_factor = 1 / self.params["factor1"]
+        mask_dims = params["extraction_dims"]
+        scale_factor = 1 / params["factor1"]
         
         box = get_box(
             coordinate[0],
             coordinate[1],
-            self.params["extraction_dims"][0] * self.params["factor1"],
-            self.params["extraction_dims"][1] * self.params["factor1"],
+            params["extraction_dims"][0] * params["factor1"],
+            params["extraction_dims"][1] * params["factor1"],
         )
         geom_region = self.tissue_geom.intersection(box)
         geom_dict = flatten_geom_collection(geom_region)
@@ -140,20 +148,20 @@ class Slicer(InitSlicer):
 
         return mask
 
-    def get_region_mask_gpu(self, coordinate):
+    def get_region_mask_gpu(self, coordinate, params):
         origin = torch.tensor(
             [coordinate[0], coordinate[1]],
             dtype=torch.float32,
             device=self.device,
         )
-        mask_dims = self.params["extraction_dims"]
-        scale_factor = 1 / self.params["factor1"]
+        mask_dims = params["extraction_dims"]
+        scale_factor = 1 /params["factor1"]
         
         box = get_box(
             coordinate[0],
             coordinate[1],
-            self.params["extraction_dims"][0] * self.params["factor1"],
-            self.params["extraction_dims"][1] * self.params["factor1"],
+            params["extraction_dims"][0]*params["factor1"],
+            params["extraction_dims"][1] *params["factor1"],
         )
         geom_region = self.tissue_geom.intersection(box)
         geom_dict = flatten_geom_collection(geom_region)
@@ -214,18 +222,16 @@ class _InferenceDataset(BaseDataset):
         if is_boundary:
             mask = self._get_boundary_mask(coordinate)
         else:
-            mask = torch.ones(
-                self.params["extraction_dims"], dtype=torch.uint8, device=self.device
-            )
+            mask = torch.ones(self.params["extraction_dims"], dtype=torch.uint8)
 
         return region, mask
 
     def _get_boundary_mask(self, coordinate):
 
         if self.data_loading_mode == "cpu":
-            return torch.from_numpy(self.slicer.get_region_mask_cpu(coordinate))
+            return torch.from_numpy(self.slicer.get_region_mask_cpu(coordinate, self.params))
         elif self.data_loading_mode == "gpu":
-            return self.slicer.get_region_mask_gpu(coordinate)
+            return self.slicer.get_region_mask_gpu(coordinate, self.params)
         else:
             raise ValueError(
                 f"Loading mode {self.data_loading_mode} not implemented, choose 'cpu' or 'gpu'"
