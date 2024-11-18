@@ -205,7 +205,7 @@ class _TissueModelV1(_QCModel):
         )
 
         self.model_name = "tissue_model_v1"
-        self.state_dict_path = Path(f"{weights_dir}/qc_models_v1/tissue_model_v1.pt")
+        self.state_dict_path = Path(f"{weights_dir}/tissue_model_v1.pt")
         self.class_map = {"bg": 0, "adipose": 1, "non_adipose": 2}
         self.mpp = 4
 
@@ -239,7 +239,7 @@ class _FoldsModelV1(_QCModel):
         )
 
         self.model_name = "folds_model_v1"
-        self.state_dict_path = Path(f"{weights_dir}/qc_models_v1/folds_model_v1.pt")
+        self.state_dict_path = Path(f"{weights_dir}/folds_model_v1.pt")
         self.class_map = {"bg": 0, "fold": 1}
         self.mpp = 2
 
@@ -273,7 +273,7 @@ class _FocusModelV1(_QCModel):
         )
 
         self.model_name = "focus_model_v1"
-        self.state_dict_path = Path(f"{weights_dir}/qc_models_v1/focus_model_v1.pt")
+        self.state_dict_path = Path(f"{weights_dir}/focus_model_v1.pt")
         self.class_map = {
             "bg": 0,
             "level_1": 1,
@@ -313,7 +313,7 @@ class _PenModelV1(_QCModel):
         )
 
         self.model_name = "pen_model_v1"
-        self.state_dict_path = Path(f"{weights_dir}/qc_models_v1/pen_model_v1.pt")
+        self.state_dict_path = Path(f"{weights_dir}/pen_model_v1.pt")
         self.class_map = {"bg": 0, "pen_mark": 1}
         self.mpp = 16
 
