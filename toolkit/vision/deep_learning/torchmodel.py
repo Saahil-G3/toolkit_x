@@ -6,7 +6,7 @@ import segmentation_models_pytorch as smp
 
 from toolkit.system.gpu.torch import GpuManager
 
-class Model(GpuManager):
+class BaseModel(GpuManager):
     def __init__(
         self,
         gpu_id=0,

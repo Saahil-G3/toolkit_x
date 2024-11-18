@@ -1,20 +1,22 @@
 from pathlib import Path
 from tqdm.auto import tqdm
+from typing import Union, List, Optional
 
 from toolkit.compath.slide.wsi import WSIManager
 from toolkit.geometry.shapely_tools import prep_geom_for_query, get_box
+from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
 from toolkit.system.gpu.torch import GpuManager
 
 
 class InitSlicer(GpuManager):
     def __init__(
         self,
-        gpu_id=0,
-        tissue_geom=None,
-        device_type="gpu",
-        dataparallel=False,
-        dataparallel_device_ids=None,
-        sample_using_tissue_geom=False,
+        gpu_id: int = 0,
+        tissue_geom: Union[Polygon, MultiPolygon] = None,
+        device_type: str = "gpu",
+        dataparallel: bool = False,
+        dataparallel_device_ids: Optional[List[int]] = None,
+        sample_using_tissue_geom: bool = False,
     ):
         GpuManager.__init__(
             self,
@@ -23,13 +25,13 @@ class InitSlicer(GpuManager):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        
+
         self.gpu_id = gpu_id
         if self.device_type == "gpu":
             self._set_gpu(self.gpu_id)
         elif self.device_type == "cpu":
             self.device = self._get_cpu()
-        
+
         self.sph = {}  # Slice Parameters History
         self.default_slice_key = -1
         self.set_params_init = False
@@ -47,32 +49,21 @@ class InitSlicer(GpuManager):
 
     def set_wsi(self, wsi_path, wsi_type):
         self.wsi = WSIManager(wsi_path).get_wsi_object(wsi_type)
-        
+
     def set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
         self.sample_using_tissue_geom = True
 
-    def set_slicer(self, slice_key=None):
-        if not self.set_params_init:
-            raise ValueError("No slice parameters have been initialized")
-
-        if slice_key is None:
-            self.slice_key = self.recent_slice_key
-        else:
-            self.slice_key = slice_key
-
-        self.params = self.sph[self.slice_key]["params"]
-
     def set_params(
         self,
-        target_mpp:float,
+        target_mpp: float,
         patch_size,
         overlap_size,
         context_size,
         slice_key=None,
-        input_tuple: bool =False,
-        show_progress: bool =False,
+        input_tuple: bool = False,
+        show_progress: bool = False,
     ):
         self.set_params_init = True
         self.default_slice_key += 1
@@ -94,7 +85,9 @@ class InitSlicer(GpuManager):
 
         self._set_params(slice_key=slice_key)
 
-        self.sph[slice_key]["all_coordinates"] = self.wsi._get_slice_wsi_coordinates(params)
+        self.sph[slice_key]["all_coordinates"] = self.wsi._get_slice_wsi_coordinates(
+            params
+        )
 
         if self.tissue_geom is not None:
             self._filter_coordinates(slice_key, show_progress=show_progress)
@@ -140,10 +133,10 @@ class InitSlicer(GpuManager):
         patch_dims = params["patch_dims"]
 
         params["shift_dims"] = (
-            context_dims[0] + overlap_dims[0]//2,
-            context_dims[1] + overlap_dims[1]//2,
+            context_dims[0] + overlap_dims[0] // 2,
+            context_dims[1] + overlap_dims[1] // 2,
         )
-        
+
         params["shift_dims"] = (overlap_dims[0], overlap_dims[1])
 
         params["extraction_dims"] = (
