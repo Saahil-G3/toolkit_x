@@ -55,7 +55,7 @@ class S3:
 
     def find_key(self, query_string, bucket_name):
         if bucket_name not in self.bucket_keys.keys():
-            s3.get_keys_from_bucket(bucket_name)
+            self.get_keys_from_bucket(bucket_name)
             
         keys_found = []
         for key in self.bucket_keys[bucket_name]:

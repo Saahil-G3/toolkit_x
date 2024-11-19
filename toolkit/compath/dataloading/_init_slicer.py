@@ -12,11 +12,9 @@ class InitSlicer(GpuManager):
     def __init__(
         self,
         gpu_id: int = 0,
-        tissue_geom: Union[Polygon, MultiPolygon] = None,
         device_type: str = "gpu",
         dataparallel: bool = False,
         dataparallel_device_ids: Optional[List[int]] = None,
-        sample_using_tissue_geom: bool = False,
     ):
         GpuManager.__init__(
             self,
@@ -36,21 +34,25 @@ class InitSlicer(GpuManager):
         self.default_slice_key = -1
         self.set_params_init = False
         self.recent_slice_key = None
-        self.tissue_geom = tissue_geom
-        self.sample_using_tissue_geom = sample_using_tissue_geom
 
-        if self.tissue_geom is not None:
-            self.sample_using_tissue_geom = True
-        else:
-            if self.sample_using_tissue_geom:
-                raise ValueError(
-                    "Sampling with tissue geometry cannot be done because 'tissue_geom' is None."
-                )
-
-    def set_wsi(self, wsi_path, wsi_type):
-        self.wsi = WSIManager(wsi_path).get_wsi_object(wsi_type)
-
-    def set_tissue_geom(self, tissue_geom):
+    def set_wsi(self, tissue_geom: Union[Polygon, MultiPolygon] = None, **kwargs):
+        """
+        Sets the WSI object for the current instance by initializing a WSIManager.
+    
+        Args:
+            tissue_geom (Union[Polygon, MultiPolygon], optional): Tissue geometry associated with the WSI.
+            **kwargs: Additional arguments to initialize WSIManager, such as `wsi_path` and `wsi_type`.
+    
+        Raises:
+            ValueError: If required arguments for WSIManager are missing.
+        """
+        if "wsi_path" not in kwargs or "wsi_type" not in kwargs:
+            raise ValueError("`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager.")
+    
+        self._set_tissue_geom(tissue_geom=tissue_geom)
+        self.wsi = WSIManager(**kwargs).wsi
+        
+    def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
         self.sample_using_tissue_geom = True
@@ -69,7 +71,7 @@ class InitSlicer(GpuManager):
         self.default_slice_key += 1
         slice_key = slice_key or self.default_slice_key
         self.recent_slice_key = slice_key
-        self.sph[slice_key] = {"params": {}}
+        self.sph[slice_key] = {"params": {}} #Slice Params
         params = self.sph[slice_key]["params"]
         self.sph[slice_key]["wsi_name"] = Path(self.wsi._wsi_path.name)
         params["target_mpp"] = target_mpp
@@ -151,11 +153,9 @@ class InitSlicer(GpuManager):
 
         params["factor1"] = self.wsi.factor_mpp(params["target_mpp"])
         params["level"] = self.wsi.get_level_for_downsample(params["factor1"])
-        params["level_dims"] = self.wsi.get_level_dimensions()[params["level"]]
-        params["mpp_at_level"] = (
-            self.wsi.get_level_downsamples()[params["level"]] * self.wsi.mpp
-        )
-        params["factor2"] = self.wsi.factor_mpp(params["mpp_at_level"])
+        params["level_dims"] = self.wsi.level_mpp_dict[params["level"]]["dims"]
+        params["mpp_at_level"] = self.wsi.level_mpp_dict[params["level"]]["mpp"]
+        params["factor2"] = self.wsi.level_mpp_dict[params["level"]]["factor"]
         params["factor3"] = self.wsi.factor_mpp(
             target_mpp=params["target_mpp"], source_mpp=params["mpp_at_level"]
         )
@@ -174,13 +174,7 @@ class InitSlicer(GpuManager):
         )
 
     def get_slice_region(self, coordinates, params):
-        region = self.wsi.get_region(
-            coordinates[0],
-            coordinates[1],
-            params["extraction_dims_at_level"][0],
-            params["extraction_dims_at_level"][1],
-            params["level"],
-        )
+        region = self.wsi.get_region_for_slicer(coordinates, params)
         return region
 
     @staticmethod

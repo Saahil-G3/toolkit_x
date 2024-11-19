@@ -1,6 +1,7 @@
 import cv2
 import geojson
 import numpy as np
+from cv2 import resize
 
 from toolkit.geometry.shapely_tools import Polygon
 

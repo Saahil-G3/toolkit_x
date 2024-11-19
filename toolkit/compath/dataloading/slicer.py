@@ -23,7 +23,6 @@ class Slicer(InitSlicer):
     def __init__(
         self,
         gpu_id: int =0,
-        tissue_geom=None,
         device_type: str ="gpu",
         data_loading_mode: str ="cpu",
         dataparallel: bool =False,
@@ -32,7 +31,6 @@ class Slicer(InitSlicer):
         InitSlicer.__init__(
             self,
             gpu_id=gpu_id,
-            tissue_geom=tissue_geom,
             device_type=device_type,
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
@@ -41,13 +39,6 @@ class Slicer(InitSlicer):
         self.coordinates_type = 'all_coordinates'
         self.data_loading_mode = data_loading_mode
         self.slice_key = None
-
-    def set_tissue_geom(self, tissue_geom):
-        """
-        Overriding the parent's set_tissue_geom method, if needed.
-        """
-        super().set_tissue_geom(tissue_geom)
-        self.coordinates_type = 'tissue_contact_coordinates'
 
     def get_inference_dataloader(
         self,
