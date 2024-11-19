@@ -19,14 +19,15 @@ from toolkit.geometry.shapely_tools import (
 from ._init_slicer import InitSlicer
 from toolkit.compath.slide._tiffslide import TiffSlideWSI
 
+
 class Slicer(InitSlicer):
     def __init__(
         self,
-        gpu_id: int =0,
-        device_type: str ="gpu",
-        data_loading_mode: str ="cpu",
-        dataparallel: bool =False,
-        dataparallel_device_ids= None,
+        gpu_id: int = 0,
+        device_type: str = "gpu",
+        data_loading_mode: str = "cpu",
+        dataparallel: bool = False,
+        dataparallel_device_ids=None,
     ):
         InitSlicer.__init__(
             self,
@@ -35,22 +36,22 @@ class Slicer(InitSlicer):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        
-        self.coordinates_type = 'all_coordinates'
+
+        self.coordinates_type = "all_coordinates"
         self.data_loading_mode = data_loading_mode
         self.slice_key = None
 
     def get_inference_dataloader(
         self,
-        coordinates_type = None,
+        coordinates_type=None,
         batch_size=2,
         shuffle=False,
         num_workers=0,
         **kwargs,
     ):
-        '''
+        """
         Creates a PyTorch DataLoader for inference based on specified coordinate types.
-        
+
         Parameters:
         - `coordinates_type` (str): Type of coordinates to use for data loading. Options:
           - `'all_coordinates'`: Load all coordinates.
@@ -59,17 +60,17 @@ class Slicer(InitSlicer):
         - `shuffle` (bool, optional): Whether to shuffle the data at every epoch. Default is `False`.
         - `num_workers` (int, optional): Number of subprocesses to use for data loading. If set to 0, data will be loaded in the main process. Default is 0.
         - `**kwargs`: Additional arguments for `DataLoader`.
-        
+
         Returns:
         - `DataLoader`: A PyTorch DataLoader for inference.
-        
+
         Notes:
         - If the whole slide image type (`wsi.wsi_type`) is `"TiffSlide"` and `num_workers` is greater than 0, a custom worker initialization function `_worker_init_tiffslide` is used.
-        '''
+        """
         if coordinates_type is None:
             coordinates_type = self.coordinates_type
         dataset = _InferenceDataset(self, coordinates_type, self.data_loading_mode)
-    
+
         if self.wsi.wsi_type == "TiffSlide" and num_workers > 0:
             dataloader = DataLoader(
                 dataset,
@@ -93,7 +94,7 @@ class Slicer(InitSlicer):
         self.wsi = TiffSlideWSI(
             wsi_path=self.wsi._wsi_path, tissue_geom=self.wsi.tissue_geom
         )
-        
+
     def set_slice_key(self, slice_key):
         self.slice_key = slice_key
 
@@ -101,7 +102,7 @@ class Slicer(InitSlicer):
         origin = np.array([coordinate[0], coordinate[1]], dtype=np.float32)
         mask_dims = params["extraction_dims"]
         scale_factor = 1 / params["factor1"]
-        
+
         box = get_box(
             coordinate[0],
             coordinate[1],
@@ -110,7 +111,7 @@ class Slicer(InitSlicer):
         )
         geom_region = self.tissue_geom.intersection(box)
         geom_dict = flatten_geom_collection(geom_region)
-        
+
         exterior, holes = [], []
 
         for polygon in geom_dict["Polygon"]:
@@ -138,13 +139,13 @@ class Slicer(InitSlicer):
             device=self.device,
         )
         mask_dims = params["extraction_dims"]
-        scale_factor = 1 /params["factor1"]
-        
+        scale_factor = 1 / params["factor1"]
+
         box = get_box(
             coordinate[0],
             coordinate[1],
-            params["extraction_dims"][0]*params["factor1"],
-            params["extraction_dims"][1] *params["factor1"],
+            params["extraction_dims"][0] * params["factor1"],
+            params["extraction_dims"][1] * params["factor1"],
         )
         geom_region = self.tissue_geom.intersection(box)
         geom_dict = flatten_geom_collection(geom_region)
@@ -180,10 +181,9 @@ class Slicer(InitSlicer):
 
         return mask
 
+
 class _InferenceDataset(BaseDataset):
-    def __init__(
-        self, slicer, coordinates_type, data_loading_mode="cpu"
-    ):
+    def __init__(self, slicer, coordinates_type, data_loading_mode="cpu"):
         self.slicer = slicer
         self.data_loading_mode = data_loading_mode
         self.coordinates_type = coordinates_type
@@ -197,9 +197,7 @@ class _InferenceDataset(BaseDataset):
 
     def __getitem__(self, idx):
         coordinate, is_boundary = self.coordinates[idx]
-        region = pil_to_tensor(
-            self.slicer.get_slice_region(coordinate, self.params)
-        )
+        region = pil_to_tensor(self.slicer.get_slice_region(coordinate, self.params))
         region = resize(region, self.params["extraction_dims"])
 
         if is_boundary:
@@ -212,7 +210,9 @@ class _InferenceDataset(BaseDataset):
     def _get_boundary_mask(self, coordinate):
 
         if self.data_loading_mode == "cpu":
-            return torch.from_numpy(self.slicer._get_region_mask_cpu(coordinate, self.params))
+            return torch.from_numpy(
+                self.slicer._get_region_mask_cpu(coordinate, self.params)
+            )
         elif self.data_loading_mode == "gpu":
             return self.slicer._get_region_mask_gpu(coordinate, self.params)
         else:

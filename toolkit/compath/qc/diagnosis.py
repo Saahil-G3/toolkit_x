@@ -1,7 +1,13 @@
 from pathlib import Path
 from typing import Optional, List
 
-from .qc_models_v1.qc_models import TissueModelV1, FocusModelV1, FoldsModelV1, PenModelV1, NodeDetectionV1
+from .qc_models_v1.qc_models import (
+    TissueModelV1,
+    FocusModelV1,
+    FoldsModelV1,
+    PenModelV1,
+    NodeDetectionV1,
+)
 
 from toolkit.compath.dataloading.slicer import Slicer
 from toolkit.geometry.shapely_tools import loads
@@ -11,11 +17,11 @@ from toolkit.system.storage.data_io_tools import h5
 class Diagnosis(Slicer):
     def __init__(
         self,
-        gpu_id: int =0,
-        device_type: str ="gpu",
-        dataparallel: bool =False,
-        data_loading_mode: str ="cpu",
-        dataparallel_device_ids: Optional[List[int]]=None,
+        gpu_id: int = 0,
+        device_type: str = "gpu",
+        dataparallel: bool = False,
+        data_loading_mode: str = "cpu",
+        dataparallel_device_ids: Optional[List[int]] = None,
     ):
         Slicer.__init__(
             self,
@@ -25,10 +31,10 @@ class Diagnosis(Slicer):
             data_loading_mode=data_loading_mode,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        
+
         self._default_tissue_detector = "tissue_model_v1"
         self.tissue_detection_models = ["tissue_model_v1", "node_detection_v1"]
-        self.model_types = ["qc_models_v1"] 
+        self.model_types = ["qc_models_v1"]
         self.available_models = {
             "qc_models_v1": {
                 "tissue_model_v1": TissueModelV1,
@@ -45,7 +51,7 @@ class Diagnosis(Slicer):
         wsi_type: str,
         model_run_sequence: list[str] = ["tissue_model_v1"],
         **kwargs,
-    )-> None:
+    ) -> None:
         self.set_wsi(wsi_path=wsi_path, wsi_type=wsi_type)
         self.tissue_path = Path(
             f"results/{self.wsi._wsi_path.stem}/qc/h5/{self._default_tissue_detector}.h5"
@@ -71,21 +77,23 @@ class Diagnosis(Slicer):
         print("Models available:")
         for model_type, models in self.available_models.items():
             print(f"{model_type}:")
-            print("\n".join(f"    {idx + 1}. {model}" for idx, model in enumerate(models)))
+            print(
+                "\n".join(f"    {idx + 1}. {model}" for idx, model in enumerate(models))
+            )
             print()
 
     def set_model(self, model_type: str, model_name: str, model_args: dict = None):
         """
         Sets the specified model by instantiating it with the provided arguments and storing it as an attribute of the class instance.
-    
+
         Args:
             model_type (str): The type of model to set. This determines which set of available models to choose from (e.g., "qc_models_v1").
             model_name (str): The name of the specific model to instantiate (e.g., "node_detection_v1").
             model_args (dict, optional): A dictionary containing the arguments to be passed to the model's constructor. Defaults to None.
-    
+
         Raises:
             KeyError: If the provided `model_type` or `model_name` does not exist in the `available_models` dictionary.
-    
+
         Example:
             # Setting the node detection model with specific arguments
             node_detection_v1_args = {
@@ -102,7 +110,7 @@ class Diagnosis(Slicer):
             if model_type in self.available_models
             else "N/A"
         )
-    
+
         if (
             model_type not in self.available_models
             or model_name not in self.available_models.get(model_type, {})
@@ -122,7 +130,7 @@ class Diagnosis(Slicer):
                 "dataparallel": None,
                 "dataparallel_device_ids": None,
             }
-    
+
         model_class = self.available_models[model_type][model_name]
         model_instance = model_class(**model_args)
         setattr(self, f"{model_name}", model_instance)

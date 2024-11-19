@@ -3,6 +3,7 @@ from pma_python import core
 from ._tiffslide import TiffSlideWSI
 from ._pathomation import PathomationWSI
 
+
 def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
     sessionID = core.connect(
         pmacoreURL=pmacoreURL,
@@ -12,6 +13,7 @@ def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
     )
     return sessionID
 
+
 class WSIManager:
     supported_wsi_types = {"TiffSlide", "Pathomation"}
     wsi_classes = {
@@ -19,7 +21,9 @@ class WSIManager:
         "Pathomation": PathomationWSI,
     }
 
-    def __init__(self, wsi_path, wsi_type="TiffSlide", sessionID=None, tissue_geom=None):
+    def __init__(
+        self, wsi_path, wsi_type="TiffSlide", sessionID=None, tissue_geom=None
+    ):
         """
         Initializes the WSIManager with the provided WSI path, type, and optional metadata.
 
@@ -33,7 +37,7 @@ class WSIManager:
             raise ValueError(
                 f"Unsupported wsi_type '{wsi_type}'. Supported types are: {self.supported_wsi_types}"
             )
-        
+
         self.wsi_type = wsi_type
         self.wsi_path = wsi_path
         self.sessionID = sessionID
@@ -54,6 +58,5 @@ class WSIManager:
         }
         if self.wsi_type == "Pathomation":
             kwargs["sessionID"] = self.sessionID
-        
-        return wsi_class(**kwargs)
 
+        return wsi_class(**kwargs)

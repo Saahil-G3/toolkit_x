@@ -55,17 +55,19 @@ class PathomationWSI(InitWSI):
 
     def get_level_for_downsample(self, factor):
         for key, value in self.level_mpp_dict.items():
-            if value["factor"]<factor:
+            if value["factor"] < factor:
                 break
         return key
 
     def get_region_for_slicer(self, coordinate, slice_params):
-        x , y = coordinate
-        w, h = slice_params['extraction_dims']
-        factor = slice_params['factor1']
-        w_scaled = self.round_to_nearest_even(w*factor)
-        h_scaled = self.round_to_nearest_even(h*factor)
-        region = self._get_region(x, y, w_scaled, h_scaled, scale=1/factor).convert("RGB")
+        x, y = coordinate
+        w, h = slice_params["extraction_dims"]
+        factor = slice_params["factor1"]
+        w_scaled = self.round_to_nearest_even(w * factor)
+        h_scaled = self.round_to_nearest_even(h * factor)
+        region = self._get_region(x, y, w_scaled, h_scaled, scale=1 / factor).convert(
+            "RGB"
+        )
         return region
 
     def _get_region(self, x: int, y: int, w: int, h: int, scale: float = 1):
@@ -80,7 +82,6 @@ class PathomationWSI(InitWSI):
         )
         return region
 
-
     def _set_level_mpp_dict(self):
         level_mpp_dict = {}
         for level in self.zoomlevels:
@@ -91,11 +92,11 @@ class PathomationWSI(InitWSI):
 
             temp_dict["level"] = level
             temp_dict["mpp"] = mpp_x
-            #factor to go from original mpp to mpp_x
+            # factor to go from original mpp to mpp_x
             temp_dict["factor"] = self.factor_mpp(temp_dict["mpp"])
             temp_dict["dims"] = (
-                int(self.dims[0]//temp_dict["factor"]), 
-                int(self.dims[1]//temp_dict["factor"])
+                int(self.dims[0] // temp_dict["factor"]),
+                int(self.dims[1] // temp_dict["factor"]),
             )
             level_mpp_dict[self.level_count - level - 1] = temp_dict
             if mpp_x != mpp_y:
@@ -112,22 +113,28 @@ class PathomationWSI(InitWSI):
         extraction_dims = slice_params["extraction_dims"]
         stride_dims = slice_params["stride_dims"]
         context_dims = slice_params["context_dims"]
-        
-        scaled_extraction_dims = int(extraction_dims[0]*factor1), int(extraction_dims[1]*factor1)
-        scaled_stride_dims = int(stride_dims[0]*factor1), int(stride_dims[1]*factor1)
-        scaled_context_dims = int(context_dims[0]*factor1), int(context_dims[1]*factor1)
-        
+
+        scaled_extraction_dims = int(extraction_dims[0] * factor1), int(
+            extraction_dims[1] * factor1
+        )
+        scaled_stride_dims = int(stride_dims[0] * factor1), int(
+            stride_dims[1] * factor1
+        )
+        scaled_context_dims = int(context_dims[0] * factor1), int(
+            context_dims[1] * factor1
+        )
+
         max_x = x_lim + scaled_context_dims[0]
         max_y = y_lim + scaled_context_dims[1]
-        
+
         max_x_adj = max_x - scaled_extraction_dims[0]
         max_y_adj = max_y - scaled_extraction_dims[1]
-        
+
         for x in range(-scaled_context_dims[0], max_x, scaled_stride_dims[0]):
             x_clipped = min(x, max_x_adj)
-        
+
             for y in range(-scaled_context_dims[1], max_y, scaled_stride_dims[1]):
                 y_clipped = min(y, max_y_adj)
-        
+
                 coordinates.append(((x, y), False))
         return coordinates

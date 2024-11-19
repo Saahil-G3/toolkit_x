@@ -38,20 +38,22 @@ class InitSlicer(GpuManager):
     def set_wsi(self, tissue_geom: Union[Polygon, MultiPolygon] = None, **kwargs):
         """
         Sets the WSI object for the current instance by initializing a WSIManager.
-    
+
         Args:
             tissue_geom (Union[Polygon, MultiPolygon], optional): Tissue geometry associated with the WSI.
             **kwargs: Additional arguments to initialize WSIManager, such as `wsi_path` and `wsi_type`.
-    
+
         Raises:
             ValueError: If required arguments for WSIManager are missing.
         """
         if "wsi_path" not in kwargs or "wsi_type" not in kwargs:
-            raise ValueError("`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager.")
-    
+            raise ValueError(
+                "`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager."
+            )
+
         self._set_tissue_geom(tissue_geom=tissue_geom)
         self.wsi = WSIManager(**kwargs).wsi
-        
+
     def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
@@ -71,7 +73,7 @@ class InitSlicer(GpuManager):
         self.default_slice_key += 1
         slice_key = slice_key or self.default_slice_key
         self.recent_slice_key = slice_key
-        self.sph[slice_key] = {"params": {}} #Slice Params
+        self.sph[slice_key] = {"params": {}}  # Slice Params
         params = self.sph[slice_key]["params"]
         self.sph[slice_key]["wsi_name"] = Path(self.wsi._wsi_path.name)
         params["target_mpp"] = target_mpp
