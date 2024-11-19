@@ -4,21 +4,19 @@ from tqdm.auto import tqdm
 
 from .data_io_tools import save_pickle
 
-class S3:
-    def __init__(
-        self, endpoint_url, aws_access_key_id, aws_secret_access_key, use_ssl=True
-    ):
-        self._endpoint_url = endpoint_url
-        self._aws_access_key_id = aws_access_key_id
-        self._aws_secret_access_key = aws_secret_access_key
-        self._use_ssl = use_ssl
-        self._s3 = boto3.client(
-            "s3",
-            aws_access_key_id=self._aws_access_key_id,
-            aws_secret_access_key=self._aws_secret_access_key,
-            use_ssl=self._use_ssl,
-            endpoint_url=self._endpoint_url,
+def get_s3_object(endpoint_url, aws_access_key_id, aws_secret_access_key, use_ssl=True):
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=aws_access_key_id,
+        aws_secret_access_key=aws_secret_access_key,
+        use_ssl=use_ssl,
+        endpoint_url=endpoint_url,
         )
+    return s3
+
+class S3:
+    def __init__(self, s3_object):
+        self._s3 = s3_object
         self.bucket_list = self._set_bucket_list()
         self.bucket_keys = {}
         self.queried_keys = {}

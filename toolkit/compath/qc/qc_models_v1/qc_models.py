@@ -65,10 +65,14 @@ class NodeDetectionV1(BaseQCModel):
         )
 
         self.model_name = "node_detection_v1"
-        self.state_dict_path = Path(f"{weights_dir}/node_detection_v1")
+        self.state_dict_path = Path(f"{weights_dir}/node_detection_v1.pth")
         self.class_map = {"bg": 0, "node": 1}
         self.mpp = 3.2
 
+        self.patch_size = patch_size
+        self.overlap_size = int(self.patch_size * 0.0625)
+        self.context_size = self.overlap_size
+        
         self._model_class = "smp"
         self._architecture = "UnetPlusPlus"
         self._encoder_name = "resnet34"

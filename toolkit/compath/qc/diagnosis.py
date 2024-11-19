@@ -47,12 +47,10 @@ class Diagnosis(Slicer):
 
     def run_model_sequence(
         self,
-        wsi_path: str,
-        wsi_type: str,
         model_run_sequence: list[str] = ["tissue_model_v1"],
         **kwargs,
     ) -> None:
-        self.set_wsi(wsi_path=wsi_path, wsi_type=wsi_type)
+        #self.set_wsi(wsi_path=wsi_path, wsi_type=wsi_type)
         self.tissue_path = Path(
             f"results/{self.wsi._wsi_path.stem}/qc/h5/{self._default_tissue_detector}.h5"
         )
