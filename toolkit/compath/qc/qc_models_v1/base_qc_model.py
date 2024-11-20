@@ -1,7 +1,7 @@
 from pathlib import Path
 
-import numpy as np
 import geojson
+import numpy as np
 from tqdm.auto import tqdm
 
 import torch
@@ -14,6 +14,8 @@ from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.vision.deep_learning.torchmodel import BaseModel
 from toolkit.vision.image_tools import get_cmap, get_rgb_colors
 
+import cv2
+cv2.setNumThreads(0) 
 
 class BaseQCModel(BaseModel):
     def __init__(
@@ -60,13 +62,15 @@ class BaseQCModel(BaseModel):
                     preds = self.model(batch)
                     preds = torch.argmax(preds, 1)
 
+                    preds = preds.float().unsqueeze(1)
+                    preds = median_blur(preds, 15)
+                    preds = preds.squeeze(1)
+
                     tissue_masks = tissue_masks.to(self.device)
                     preds *= tissue_masks
                     del tissue_masks
 
-                    preds = preds.float().unsqueeze(1)
-                    preds = median_blur(preds, 15)
-                    preds = preds.squeeze(1).to(torch.uint8).to("cpu").numpy()
+                    preds = preds.to("cpu").numpy()
 
                     for pred in preds:
                         self._pred_dicts.append(self._process_pred(pred))
@@ -95,18 +99,16 @@ class BaseQCModel(BaseModel):
         pred_sliced = pred[
             shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
         ]
-
         pred_dict = {}
         for key, value in self.class_map.items():
             if key == "bg":
                 continue
-            class_mask = np.uint8(pred_sliced == value)
+            class_mask = (pred_sliced == value).astype(np.uint8)
             contours, hierarchy = get_contours(class_mask)
             pred_dict[key] = [contours, hierarchy]
-
-        pred_sliced = pred_sliced
+            
         pred_sliced[pred_sliced != 0] = 1
-        contours, hierarchy = get_contours(pred_sliced)
+        contours, hierarchy = get_contours(pred_sliced.astype(np.uint8))
         pred_dict["combined"] = [contours, hierarchy]
 
         return pred_dict

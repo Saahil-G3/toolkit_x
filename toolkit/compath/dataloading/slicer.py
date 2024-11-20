@@ -18,6 +18,7 @@ from toolkit.geometry.shapely_tools import (
 )
 from ._init_slicer import InitSlicer
 from toolkit.compath.slide._tiffslide import TiffSlideWSI
+from toolkit.compath.slide._pathomation import PathomationWSI
 
 from toolkit.system.logging_tools import Logger
 
@@ -27,8 +28,9 @@ logger = Logger(
     log_to_csv=True,
 ).get_logger()
 
-#Disable multi-threading in OpenCV due to issues with torch dataloaders.
-#cv2.setNumThreads(0) 
+# Disable multi-threading in OpenCV due to issues with torch dataloaders.
+# cv2.setNumThreads(0)
+
 
 class Slicer(InitSlicer):
     def __init__(
@@ -83,6 +85,7 @@ class Slicer(InitSlicer):
                 worker_init_fn=self._worker_init_tiffslide,
                 **kwargs,
             )
+
         else:
             dataloader = DataLoader(
                 dataset,
@@ -117,30 +120,26 @@ class Slicer(InitSlicer):
         geom_dict = flatten_geom_collection(geom_region)
 
         if len(geom_dict) > 1:
-            logger.warning("Multiple geometry detected in tissue mask, check")
+            logger.warning(f"Multiple geometry detected in tissue mask, check {geom_dict.keys()}")
 
-        if "Polygon" in geom_dict:
-            exterior, holes = [], []
-            for polygon in geom_dict["Polygon"]:
-                polygon_coordinates = get_polygon_coordinates_cpu(
-                    polygon, scale_factor=scale_factor, origin=origin
-                )
-                exterior.extend(polygon_coordinates[0])
-                holes.extend(polygon_coordinates[1])
+        exterior, holes = [], []
+        for polygon in geom_dict["Polygon"]:
+            polygon_coordinates = get_polygon_coordinates_cpu(
+                polygon, scale_factor=scale_factor, origin=origin
+            )
+            exterior.extend(polygon_coordinates[0])
+            holes.extend(polygon_coordinates[1])
 
-            mask = np.zeros(mask_dims, dtype=np.uint8)
+        mask = np.zeros(mask_dims, dtype=np.uint8)
 
-            for polygon in exterior:
-                cv2.fillPoly(mask, [polygon], 1)
-            #cv2.fillPoly(mask, exterior, 1)
+        for polygon in exterior:
+            cv2.fillPoly(mask, [polygon], 1)
+            # cv2.fillPoly(mask, exterior, 1)
 
-            if len(holes) > 0:
-                 for polygon in holes:
-                    cv2.fillPoly(mask, [polygon], 0)
-                #cv2.fillPoly(mask, holes, 0)
-        else:
-            logger.warning("No Polygon geom detected in tissue mask, check.")
-            mask = torch.ones(mask_dims, dtype=torch.uint8)
+        if len(holes) > 0:
+            for polygon in holes:
+                cv2.fillPoly(mask, [polygon], 0)
+            # cv2.fillPoly(mask, holes, 0)
 
         return mask
 
@@ -165,39 +164,36 @@ class Slicer(InitSlicer):
         if len(geom_dict) > 1:
             logger.warning("Multiple geometry detected in tissue mask, check")
 
-        if "Polygon" in geom_dict:
-            exterior, holes = [], []
-            for polygon in geom_dict["Polygon"]:
-                polygon_coordinates = get_polygon_coordinates_gpu(
-                    polygon,
-                    scale_factor=scale_factor,
-                    origin=origin,
-                    device=self.device,
-                )
-                exterior.extend(polygon_coordinates[0])
-                holes.extend(polygon_coordinates[1])
 
-            exterior_masks = torch.stack(
+        exterior, holes = [], []
+        for polygon in geom_dict["Polygon"]:
+            polygon_coordinates = get_polygon_coordinates_gpu(
+                polygon,
+                scale_factor=scale_factor,
+                origin=origin,
+                device=self.device,
+            )
+            exterior.extend(polygon_coordinates[0])
+            holes.extend(polygon_coordinates[1])
+
+        exterior_masks = torch.stack(
+            [
+                fill_polygon(polygon, mask_dims, device=self.device)
+                for polygon in exterior
+            ]
+        )
+        mask = exterior_masks.sum(dim=0)
+
+        if len(holes) > 0:
+            hole_masks = torch.stack(
                 [
                     fill_polygon(polygon, mask_dims, device=self.device)
-                    for polygon in exterior
+                    for polygon in holes
                 ]
             )
-            mask = exterior_masks.sum(dim=0)
+            mask -= hole_masks.sum(dim=0)
 
-            if len(holes) > 0:
-                hole_masks = torch.stack(
-                    [
-                        fill_polygon(polygon, mask_dims, device=self.device)
-                        for polygon in holes
-                    ]
-                )
-                mask -= hole_masks.sum(dim=0)
-        else:
-            logger.warning("No Polygon geom detected in tissue mask, check.")
-            mask = torch.ones(mask_dims, dtype=torch.uint8)
-
-        return mask.contiguous()
+        return mask
 
 
 class _InferenceDataset(BaseDataset):
@@ -224,16 +220,14 @@ class _InferenceDataset(BaseDataset):
         else:
             mask = torch.ones(self.params["extraction_dims"], dtype=torch.uint8)
             
-        mask = torch.ones(self.params["extraction_dims"], dtype=torch.uint8)
-
         return region, mask
 
     def _get_boundary_mask(self, coordinate):
 
         if self.data_loading_mode == "cpu":
-            mask = self.slicer._get_region_mask_cpu(coordinate, self.params)
-            mask = torch.from_numpy(mask).contiguous()
-            return mask
+            return torch.from_numpy(
+                self.slicer._get_region_mask_cpu(coordinate, self.params)
+            ).contiguous()
 
         elif self.data_loading_mode == "gpu":
             mask = self.slicer._get_region_mask_gpu(coordinate, self.params)
