@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from typing import Optional, List
 
 from .qc_models_v1.qc_models import (
@@ -12,11 +13,43 @@ from .qc_models_v1.qc_models import (
 from toolkit.compath.dataloading.slicer import Slicer
 from toolkit.geometry.shapely_tools import loads
 from toolkit.system.storage.data_io_tools import h5
+from toolkit.system.logging_tools import Logger
+
+logger = Logger(name="diagnosis", log_folder="./logs", log_to_csv=True,).get_logger()
 
 
 class Diagnosis(Slicer):
+    """
+    Implements the Diagnosis class for executing quality control models on whole slide images (WSIs). This class is an extension of the Slicer class and integrates various models for tissue detection, focus analysis, fold detection, pen mark detection, and node detection.
+
+    Args:
+        gpu_id (int): ID of the GPU to be used for computation. Defaults to 0.
+        device_type (str): Type of device to use, either "gpu" or "cpu". Defaults to "gpu".
+        dataparallel (bool): Whether to enable data parallelism. Defaults to False.
+        data_loading_mode (str): Mode for loading data, such as "cpu" or "gpu". Defaults to "cpu".
+        dataparallel_device_ids (List[int], optional): List of device IDs for data parallelism. Defaults to None.
+
+    Methods:
+        run_model_sequence:
+            Executes a sequence of models for inference on a WSI. Prioritizes tissue detection models if required.
+
+        list_available_models:
+            Lists all available models by type and name.
+
+        set_model:
+            Instantiates a specified model with provided arguments and stores it as an attribute.
+
+        _prioritize_tissue_model:
+            Reorders the model run sequence to prioritize tissue detection models.
+
+        _run_model:
+            Executes inference for a specific model. Sets parameters, initializes the dataloader, and performs inference.
+    """
+
     def __init__(
         self,
+        default_tissue_detector: str = None,
+        results_path: Path = None,
         gpu_id: int = 0,
         device_type: str = "gpu",
         dataparallel: bool = False,
@@ -32,7 +65,16 @@ class Diagnosis(Slicer):
             dataparallel_device_ids=dataparallel_device_ids,
         )
 
-        self._default_tissue_detector = "tissue_model_v1"
+        logger.info(f"Initialised diagnosis object at: runs/{results_path}")
+
+        self.results_path = Path("runs") / results_path or Path(
+            f"experiment_runs/{current_time}"
+        )
+        logger.debug(f"Results path set to: {self.results_path}")
+
+        self.default_tissue_detector = default_tissue_detector or "tissue_model_v1"
+        logger.debug(f"Default tissue detector set to: {self.default_tissue_detector}")
+
         self.tissue_detection_models = ["tissue_model_v1", "node_detection_v1"]
         self.model_types = ["qc_models_v1"]
         self.available_models = {
@@ -50,37 +92,25 @@ class Diagnosis(Slicer):
         model_run_sequence: list[str] = ["tissue_model_v1"],
         **kwargs,
     ) -> None:
-        #self.set_wsi(wsi_path=wsi_path, wsi_type=wsi_type)
-        self.tissue_path = Path(
-            f"results/{self.wsi._wsi_path.stem}/qc/h5/{self._default_tissue_detector}.h5"
-        )
-
-        if not self.tissue_path.exists():
-            if set(model_run_sequence) & set(self.tissue_detection_models):
-                model_run_sequence = self._prioritize_tissue_model(model_run_sequence)
-            else:
-                model_run_sequence.insert(0, self._default_tissue_detector)
+        logger.info("Running model sequence.")
+        if set(model_run_sequence) & set(self.tissue_detection_models):
+            model_run_sequence = self._prioritize_tissue_model(model_run_sequence)
+        else:
+            model_run_sequence.insert(0, self.default_tissue_detector)
 
         for model_name in model_run_sequence:
-            if Path(
-                f"results/{self.wsi._wsi_path.stem}/qc/h5/{model_name}.h5"
-            ).exists():
-                print(
-                    f"h5 results for {model_name} already exists skipping to next model."
-                )
-                continue
+            logger.info(f"Running model: {model_name}")
             self._run_model(model_name=model_name, **kwargs)
 
     def list_available_models(self):
-        print("Models available:")
+        print("Listing available models.")
         for model_type, models in self.available_models.items():
             print(f"{model_type}:")
-            print(
-                "\n".join(f"    {idx + 1}. {model}" for idx, model in enumerate(models))
-            )
-            print()
+            for idx, model in enumerate(models):
+                print(f"    {idx + 1}. {model}")
 
     def set_model(self, model_type: str, model_name: str, model_args: dict = None):
+        logger.info(f"Setting model {model_name} of type {model_type}.")
         """
         Sets the specified model by instantiating it with the provided arguments and storing it as an attribute of the class instance.
 
@@ -133,30 +163,36 @@ class Diagnosis(Slicer):
         model_instance = model_class(**model_args)
         setattr(self, f"{model_name}", model_instance)
 
-    def _prioritize_tissue_model(self, model_run_sequence):
-        model_set = set(model_run_sequence)
-        for model in self.tissue_detection_models:
-            if model in model_set:
-                model_run_sequence.remove(model)
-                model_run_sequence.insert(0, model)
-                break
-        return model_run_sequence
-
     def _run_model(
         self,
         model_name,
         replace_model=False,
         **kwargs,
     ):
-        if model_name not in self.tissue_detection_models:
-            tissue_wkt_dict = h5.load_wkt_dict(self.tissue_path)
-            tissue_geom = loads(tissue_wkt_dict["combined"])
-            self.set_tissue_geom(tissue_geom)
-
         model = getattr(self, model_name, None)
+
         if model is None:
             self.list_available_models()
+            logger.error(f"Model {model_name} not found in Diagnosis class.")
             raise ValueError(f"Model {model_name} not found in Diagnosis class.")
+
+        wsi_folder = self.results_path / self.wsi.stem / Path("qc")
+        wsi_folder.mkdir(parents=True, exist_ok=True)
+
+        h5_path = wsi_folder / f"{model.model_name}.h5"
+        geojson_path = wsi_folder / f"{model.model_name}.geojson"
+
+        if h5_path.exists():
+            logger.info(f"h5 results for {model_name} already exist at {h5_path}.")
+            return
+
+        if not model.detects_tissue:
+            if self.tissue_geom is None:
+                tissue_geom_path = wsi_folder / f"{self.default_tissue_detector}.h5"
+                wkt_dict = h5.load_wkt_dict(tissue_geom_path)
+                tissue_geom = loads(wkt_dict["combined"])
+                self._set_tissue_geom(tissue_geom)
+
         model.load_model(replace=replace_model)
 
         self.set_params(
@@ -169,4 +205,14 @@ class Diagnosis(Slicer):
         self.set_slice_key(slice_key=model.model_name)
         dataloader = self.get_inference_dataloader(**kwargs)
 
-        model.infer(dataloader)
+        model.infer(dataloader=dataloader, h5_path=h5_path, geojson_path=geojson_path)
+
+    def _prioritize_tissue_model(self, model_run_sequence):
+        logger.info("Prioritizing tissue detection model.")
+        model_set = set(model_run_sequence)
+        for model in self.tissue_detection_models:
+            if model in model_set:
+                model_run_sequence.remove(model)
+                model_run_sequence.insert(0, model)
+                break
+        return model_run_sequence

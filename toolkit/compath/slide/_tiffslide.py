@@ -12,10 +12,9 @@ class TiffSlideWSI(InitWSI):
     def __init__(
         self, wsi_path: Path, tissue_geom: Union[Polygon, MultiPolygon] = None
     ):
-        InitWSI.__init__(self, tissue_geom)
+        InitWSI.__init__(self, wsi_path=wsi_path, tissue_geom=tissue_geom)
 
         self.wsi_type = "TiffSlide"
-        self._wsi_path = Path(wsi_path)
         self._wsi = TiffSlide(self._wsi_path)
         self.dims = self._wsi.dimensions
         self._mpp_x = self._wsi.properties.get("tiffslide.mpp-x")
@@ -38,7 +37,7 @@ class TiffSlideWSI(InitWSI):
         return self._wsi.get_best_level_for_downsample(factor)
 
     def get_region_for_slicer(self, coordinates, slice_params):
-        x , y = coordinates
+        x, y = coordinates
         w, h = slice_params["extraction_dims_at_level"]
         level = slice_params["level"]
         region = self._get_region(x, y, w, h, level).convert("RGB")

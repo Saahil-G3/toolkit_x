@@ -1,18 +1,18 @@
 from pathlib import Path
 
+import numpy as np
 import geojson
 from tqdm.auto import tqdm
 
 import torch
-
-from toolkit.system.storage.data_io_tools import h5, save_geojson
-from toolkit.vision.image_tools import get_rgb_colors, get_cmap
+from torch.utils.data import DataLoader
 
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
+from toolkit.geometry.shapely_tools import MultiPolygon, geom_to_geojson, loads
 from toolkit.geometry.torch_tools import median_blur
-from toolkit.geometry.shapely_tools import MultiPolygon, loads, geom_to_geojson
-
+from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.vision.deep_learning.torchmodel import BaseModel
+from toolkit.vision.image_tools import get_cmap, get_rgb_colors
 
 
 class BaseQCModel(BaseModel):
@@ -23,20 +23,26 @@ class BaseQCModel(BaseModel):
         dataparallel: bool = False,
         dataparallel_device_ids: list[int] = None,
     ):
-        BaseModel.__init__(self, gpu_id, device_type, dataparallel, dataparallel_device_ids)
+        BaseModel.__init__(
+            self, gpu_id, device_type, dataparallel, dataparallel_device_ids
+        )
 
     def infer(
         self,
-        dataloader,
-        show_infer_progress=True,
-        show_merge_preds_progress=True,
-        show_process_merged_preds_progress=True,
+        dataloader: DataLoader,
+        h5_path: Path,
+        geojson_path: Path,
+        show_infer_progress: bool = True,
+        show_merge_preds_progress: bool = True,
+        show_process_merged_preds_progress: bool = True,
     ):
         if self.model is None:
             raise ValueError("No model loaded, load a model first.")
         self.model.eval()
 
-        self._set_inference_params(dataloader)
+        self._set_inference_params(
+            dataloader=dataloader, h5_path=h5_path, geojson_path=geojson_path
+        )
         self._pred_dicts = []
 
         if show_infer_progress:
@@ -60,7 +66,7 @@ class BaseQCModel(BaseModel):
 
                     preds = preds.float().unsqueeze(1)
                     preds = median_blur(preds, 15)
-                    preds = preds.squeeze(1).to(torch.uint8).to("cpu")
+                    preds = preds.squeeze(1).to(torch.uint8).to("cpu").numpy()
 
                     for pred in preds:
                         self._pred_dicts.append(self._process_pred(pred))
@@ -74,22 +80,16 @@ class BaseQCModel(BaseModel):
         )
         self._convert_to_geojson()
 
-    def _set_inference_params(self, dataloader):
+    def _set_inference_params(self, dataloader, h5_path, geojson_path):
         self._dataloader = dataloader
         self._params = self._dataloader.dataset.params
         self._coordinates = [
             coordinate for coordinate, _ in self._dataloader.dataset.coordinates
         ]
-        self.h5_path = Path(
-            f"results/{self._dataloader.dataset.wsi_name.stem}/qc/h5/{self.model_name}.h5"
-        )
-        self.geojson_path = Path(
-            f"results/{self._dataloader.dataset.wsi_name.stem}/qc/geojson/{self.model_name}.geojson"
-        )
 
-        self.h5_path.parent.mkdir(parents=True, exist_ok=True)
-        self.geojson_path.parent.mkdir(parents=True, exist_ok=True)
-
+        self.h5_path = h5_path
+        self.geojson_path = geojson_path
+        
     def _process_pred(self, pred):
         shift_dims = self._params["shift_dims"]
         pred_sliced = pred[
@@ -100,11 +100,11 @@ class BaseQCModel(BaseModel):
         for key, value in self.class_map.items():
             if key == "bg":
                 continue
-            class_mask = (pred_sliced == value).to(torch.uint8).numpy()
+            class_mask = np.uint8(pred_sliced == value)
             contours, hierarchy = get_contours(class_mask)
             pred_dict[key] = [contours, hierarchy]
 
-        pred_sliced = pred_sliced.numpy()
+        pred_sliced = pred_sliced
         pred_sliced[pred_sliced != 0] = 1
         contours, hierarchy = get_contours(pred_sliced)
         pred_dict["combined"] = [contours, hierarchy]
@@ -165,7 +165,7 @@ class BaseQCModel(BaseModel):
 
     def _convert_to_geojson(self):
         wkt_dict = h5.load_wkt_dict(self.h5_path)
-        colors = get_rgb_colors(len(wkt_dict), cmap=get_cmap(6))
+        colors = get_rgb_colors(len(wkt_dict)+1, cmap=get_cmap(6))
         geojson_features = []
 
         for idx, dict_item in enumerate(wkt_dict.items()):
@@ -174,7 +174,7 @@ class BaseQCModel(BaseModel):
             geojson_feature["properties"] = {
                 "objectType": "annotation",
                 "name": key,
-                "color": colors[idx],
+                "color": colors[idx+1],
             }
             geojson_features.append(geojson_feature)
         geojson_feature_collection = geojson.FeatureCollection(geojson_features)
@@ -182,16 +182,3 @@ class BaseQCModel(BaseModel):
             geojson_feature_collection,
             self.geojson_path,
         )
-
-
-
-
-
-
-
-
-
-
-
-
-

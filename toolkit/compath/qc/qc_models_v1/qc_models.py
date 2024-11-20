@@ -64,6 +64,7 @@ class NodeDetectionV1(BaseQCModel):
             dataparallel_device_ids=dataparallel_device_ids,
         )
 
+        self.detects_tissue = True
         self.model_name = "node_detection_v1"
         self.state_dict_path = Path(f"{weights_dir}/node_detection_v1.pth")
         self.class_map = {"bg": 0, "node": 1}
@@ -98,6 +99,8 @@ class PenModelV1(BaseQCModel):
             dataparallel_device_ids=dataparallel_device_ids,
         )
 
+        self.detects_tissue = False
+        
         self.model_name = "pen_model_v1"
         self.state_dict_path = Path(f"{weights_dir}/pen_model_v1.pt")
         self.class_map = {"bg": 0, "pen_mark": 1}
@@ -131,6 +134,8 @@ class FocusModelV1(BaseQCModel):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
+        
+        self.detects_tissue = False
 
         self.model_name = "focus_model_v1"
         self.state_dict_path = Path(f"{weights_dir}/focus_model_v1.pt")
@@ -172,6 +177,8 @@ class FoldsModelV1(BaseQCModel):
             dataparallel_device_ids=dataparallel_device_ids,
         )
 
+        self.detects_tissue = False
+        
         self.model_name = "folds_model_v1"
         self.state_dict_path = Path(f"{weights_dir}/folds_model_v1.pt")
         self.class_map = {"bg": 0, "fold": 1}
@@ -205,7 +212,9 @@ class TissueModelV1(BaseQCModel):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-
+        
+        self.detects_tissue = True
+         
         self.model_name = "tissue_model_v1"
         self.state_dict_path = Path(f"{weights_dir}/tissue_model_v1.pt")
         self.class_map = {"bg": 0, "adipose": 1, "non_adipose": 2}

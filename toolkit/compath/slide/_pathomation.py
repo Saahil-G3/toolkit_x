@@ -15,11 +15,10 @@ class PathomationWSI(InitWSI):
         sessionID: str = None,
         tissue_geom: Union[Polygon, MultiPolygon] = None,
     ):
-        InitWSI.__init__(self, tissue_geom)
+        InitWSI.__init__(self, wsi_path=wsi_path, tissue_geom=tissue_geom)
 
         self.sessionID = sessionID
         self.wsi_type = "Pathomation"
-        self._wsi_path = Path(wsi_path)
         self._slideRef = str(self._wsi_path)
         self.dims = core.get_pixel_dimensions(
             self._slideRef, zoomlevel=None, sessionID=self.sessionID

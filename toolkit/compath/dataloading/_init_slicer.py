@@ -35,7 +35,10 @@ class InitSlicer(GpuManager):
         self.set_params_init = False
         self.recent_slice_key = None
 
-    def set_wsi(self, tissue_geom: Union[Polygon, MultiPolygon] = None, **kwargs):
+        self._coordinates_type = "all_coordinates"
+        self.tissue_geom = None
+
+    def set_wsi(self, **kwargs):
         """
         Sets the WSI object for the current instance by initializing a WSIManager.
 
@@ -51,13 +54,11 @@ class InitSlicer(GpuManager):
                 "`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager."
             )
 
-        self._set_tissue_geom(tissue_geom=tissue_geom)
         self.wsi = WSIManager(**kwargs).wsi
 
     def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
         self.tissue_geom_prepared = prep_geom_for_query(tissue_geom)
-        self.sample_using_tissue_geom = True
 
     def set_params(
         self,
@@ -121,7 +122,7 @@ class InitSlicer(GpuManager):
                     tissue_contact_coordinates.append(((x, y), True))
 
         self.sph[slice_key]["tissue_contact_coordinates"] = tissue_contact_coordinates
-        self.sample_using_tissue_geom = True
+        self._coordinates_type = "tissue_contact_coordinates"
 
     def _set_params(self, slice_key):
         """

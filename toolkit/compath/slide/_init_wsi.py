@@ -1,8 +1,14 @@
+from pathlib import Path
+
 import numpy as np
 
-class InitWSI():
-    def __init__(self, tissue_geom=None):
+
+class InitWSI:
+    def __init__(self, wsi_path: Path, tissue_geom=None):
         self.tissue_geom = tissue_geom
+        self._wsi_path = Path(wsi_path)
+        self.name = Path(self._wsi_path.name)
+        self.stem = Path(self._wsi_path.stem)
 
     def get_dims_at_mpp(self, target_mpp):
         scale, rescale = self.scale_mpp(target_mpp)

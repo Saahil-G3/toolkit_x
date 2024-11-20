@@ -1,9 +1,13 @@
-import yaml
-import geojson
-import pickle
-import h5py
 from pathlib import Path
 
+import yaml
+import h5py
+import pickle
+import geojson
+
+from toolkit.system.logging_tools import Logger
+
+logger = Logger(name="data_io_tools", log_folder="./logs", log_to_csv=True,).get_logger()
 
 class H5:
     def __init__(self):
@@ -23,11 +27,15 @@ class H5:
             if overwrite:
                 path.unlink()
             else:
-                print("File already exists, set overwrite=True for overwriting the file.")
+                logger.info(
+                    "File already exists, set overwrite=True for overwriting the file."
+                )
                 return
 
         with h5py.File(path, "a") as f:
-            group = f.create_group("wkt_data")  # Optional: you can save everything inside a group
+            group = f.create_group(
+                "wkt_data"
+            )  # Optional: you can save everything inside a group
 
             for class_name, wkt in data.items():
                 group.create_dataset(class_name, data=wkt)
@@ -43,7 +51,9 @@ class H5:
 
         return data
 
+
 h5 = H5()
+
 
 def save_yaml(data, path):
     """
@@ -58,7 +68,7 @@ def save_yaml(data, path):
         with open(path, "w") as file:
             yaml.dump(data, file, default_flow_style=False)
     except Exception as e:
-        print(f"An error occurred while saving to YAML: {e}")
+        logger.info(f"An error occurred while saving to YAML: {e}")
 
 
 def load_yaml(path):
@@ -68,10 +78,10 @@ def load_yaml(path):
             data = yaml.safe_load(file)
         return data
     except FileNotFoundError:
-        print(f"Error: The file {path} was not found.")
+        logger.info(f"Error: The file {path} was not found.")
         return None
     except yaml.YAMLError as exc:
-        print(f"Error loading file: {exc}")
+        logger.info(f"Error loading file: {exc}")
         return None
 
 
@@ -79,7 +89,7 @@ def save_pickle(data, path):
     path = Path(path)  # Ensure path is a Path object
     with open(path, "wb") as file:
         pickle.dump(data, file)
-        print("File Saved")
+        logger.info("File Saved")
 
 
 def load_pickle(path):
@@ -89,10 +99,10 @@ def load_pickle(path):
             data = pickle.load(file)
             return data
     except FileNotFoundError:
-        print(f"Error: The file {path} was not found.")
+        logger.info(f"Error: The file {path} was not found.")
         return None
     except Exception as e:
-        print(f"Error loading file: {e}")
+        logger.info(f"Error loading file: {e}")
         return None
 
 
@@ -100,7 +110,7 @@ def save_geojson(data, path):
     path = Path(path)  # Ensure path is a Path object
     with open(path, "w") as output_file:
         geojson.dump(data, output_file)
-    print(f"GeoJSON file '{path}' created successfully.")
+    logger.info(f"GeoJSON file '{path}' created successfully.")
 
 
 def load_geojson(path):
