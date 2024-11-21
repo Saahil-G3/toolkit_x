@@ -44,8 +44,8 @@ class Logger:
         self.logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all levels
         self.logger.propagate = False  # Prevent duplicate logs
 
-        # Ensure the log folder exists
-        os.makedirs(log_folder, exist_ok=True)
+        log_folder = Path(log_folder)
+        log_folder.mkdir(parents=True, exist_ok=True)
 
         # Handlers for logging
         console_handler = logging.StreamHandler()

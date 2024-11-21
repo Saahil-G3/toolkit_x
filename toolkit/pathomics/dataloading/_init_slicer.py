@@ -1,16 +1,32 @@
+import cv2
+import warnings
+import numpy as np
 from pathlib import Path
 from tqdm.auto import tqdm
+from datetime import datetime
 from typing import Union, List, Optional
 
-from toolkit.pathomics.slide.wsi import WSIManager
-from toolkit.geometry.shapely_tools import prep_geom_for_query, get_box
+from toolkit.geometry.shapely_tools import (
+    loads,
+    get_box,
+    flatten_geom_collection,
+    get_polygon_coordinates_cpu,
+    prep_geom_for_query,
+    get_box,
+    # get_polygon_coordinates_gpu,
+)
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
+from toolkit.pathomics.slide.wsi import WSIManager
 from toolkit.system.gpu.torch import GpuManager
+from toolkit.system.logging_tools import Logger
+
+current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
 
 class InitSlicer(GpuManager):
     def __init__(
         self,
+        results_path: Path = None,
         gpu_id: int = 0,
         device_type: str = "gpu",
         dataparallel: bool = False,
@@ -22,6 +38,14 @@ class InitSlicer(GpuManager):
             device_type=device_type,
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
+        )
+
+        self.logger = Logger(
+            name="diagnosis", log_folder=f"logs/{results_path}"
+        ).get_logger()
+
+        self.results_path = Path("runs") / results_path or Path(
+            f"experiment_runs/{current_time}"
         )
 
         self.gpu_id = gpu_id
@@ -97,7 +121,7 @@ class InitSlicer(GpuManager):
         if self.tissue_geom is not None:
             self._filter_coordinates(slice_key, show_progress=show_progress)
 
-    def _filter_coordinates(self, slice_key, show_progress=False):
+    def _filter_coordinates(self, slice_key, show_progress=True):
         params = self.sph[slice_key]["params"]
         extraction_dims = params["extraction_dims"]
         factor1 = params["factor1"]
@@ -119,7 +143,17 @@ class InitSlicer(GpuManager):
                 if self.tissue_geom_prepared.contains(box):
                     tissue_contact_coordinates.append(((x, y), False))
                 else:
-                    tissue_contact_coordinates.append(((x, y), True))
+                    geom_region = self.tissue_geom.intersection(box).buffer(0)
+                    if geom_region.area == 0:
+                        mask = np.zeros(extraction_dims, dtype=np.uint8)
+                    else:
+                        mask = self.get_numpy_mask_from_geom(
+                            mask_dims=extraction_dims,
+                            geom=geom_region,
+                            origin=(x, y),
+                            scale_factor=1 / factor1,
+                        )
+                    tissue_contact_coordinates.append(((x, y), mask))
 
         self.sph[slice_key]["tissue_contact_coordinates"] = tissue_contact_coordinates
         self._coordinates_type = "tissue_contact_coordinates"
@@ -183,3 +217,25 @@ class InitSlicer(GpuManager):
     @staticmethod
     def round_to_nearest_even(x):
         return round(x / 2) * 2
+
+    @staticmethod
+    def get_numpy_mask_from_geom(
+        geom, mask_dims: tuple, origin: tuple, scale_factor: float
+    ):
+        geom_dict = flatten_geom_collection(geom)
+        if len(geom_dict) > 1:
+            warnings.warn(
+                f"Multiple geometries detected in tissue mask. Check: {', '.join(geom_dict.keys())}"
+            )
+        exterior, holes = [], []
+        for polygon in geom_dict["Polygon"]:
+            polygon_coordinates = get_polygon_coordinates_cpu(
+                polygon, scale_factor=scale_factor, origin=origin
+            )
+            exterior.extend(polygon_coordinates[0])
+            holes.extend(polygon_coordinates[1])
+        mask = np.zeros(mask_dims, dtype=np.uint8)
+        cv2.fillPoly(mask, exterior, 1)
+        if len(holes) > 0:
+            cv2.fillPoly(mask, holes, 0)
+        return mask

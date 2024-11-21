@@ -56,7 +56,8 @@ class BaseQCModel(BaseModel):
                 dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
             ):
                 batch_idx=0 
-                for batch, tissue_masks in iterator:
+                for batch in iterator:
+                #for batch, tissue_masks in iterator:
                     batch = batch.to(self.device) - 0.5
                     preds = self.model(batch)
                     preds = torch.argmax(preds, 1)
@@ -65,11 +66,12 @@ class BaseQCModel(BaseModel):
                     preds = median_blur(preds, 15)
                     preds = preds.squeeze(1)
 
-                    tissue_masks = tissue_masks.to(self.device)
-                    preds *= tissue_masks
-                    del tissue_masks
+                    #tissue_masks = tissue_masks.to(self.device)
+                    #preds *= tissue_masks
+                    #del tissue_masks
 
                     preds = preds.to("cpu").numpy()
+                    
                     for pred in preds:
                         self._pred_dicts.append(self._process_pred(pred))
 
@@ -88,6 +90,8 @@ class BaseQCModel(BaseModel):
         self._coordinates = [
             coordinate for coordinate, _ in self._dataloader.dataset.coordinates
         ]
+        
+        #self._coordinates = self._dataloader.dataset.coordinates
         
         self.model_results_folder= model_results_folder
         self.geojson_path = model_results_folder / f"{self.model_name}.geojson"
