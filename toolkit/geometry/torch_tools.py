@@ -8,6 +8,16 @@ pil_to_tensor = ToTensor()
 
 
 def no_grad(func):
+    """
+    Decorator to execute a function without computing gradients.
+
+    Args:
+        func (Callable): The function to decorate.
+
+    Returns:
+        Callable: The decorated function with gradient computations disabled.
+    """
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         with torch.no_grad():
@@ -18,6 +28,17 @@ def no_grad(func):
 
 @no_grad
 def fill_polygon(polygon, mask_dims, device):
+    """
+    Fills a polygon within a given mask's dimensions.
+
+    Args:
+        polygon (torch.Tensor): A 2D tensor of shape `(N, 2)` representing the polygon's vertices.
+        mask_dims (tuple): A tuple of integers `(height, width)` specifying the mask's dimensions.
+        device (torch.device): The device on which the computation is performed.
+
+    Returns:
+        torch.Tensor: A 2D binary tensor of shape `mask_dims` where pixels inside the polygon are 1, and others are 0.
+    """
     x_points = torch.arange(mask_dims[0], dtype=polygon.dtype, device=device).repeat(
         mask_dims[0]
     )
@@ -46,6 +67,19 @@ def fill_polygon(polygon, mask_dims, device):
 
 
 def apply_median_blur(self, mask, median_blur_kernel=15):
+    """
+    Applies median blur to a mask tensor.
+
+    Args:
+        mask (torch.Tensor): A 2D or 3D tensor representing the mask to process.
+        median_blur_kernel (int, optional): The size of the kernel for median blur. Default is 15.
+
+    Returns:
+        torch.Tensor: The mask tensor after applying median blur.
+
+    Raises:
+        ValueError: If the mask has more than 3 dimensions.
+    """
     num_dims = mask.dim()
 
     if num_dims == 2:

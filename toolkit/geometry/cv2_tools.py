@@ -16,6 +16,20 @@ hierarchy = [[[ 1, -1, -1, -1],  # Contour 0: [Next, Prev, First_Child, Parent]
 def get_shapely_poly(
     contours, hierarchy, scale_factor=1, shift_x=0, shift_y=0, process_hierarchy=True
 ):
+    """
+    Convert contours into Shapely polygons, optionally processing the hierarchy to handle nested structures.
+
+    Args:
+        contours: List of contours, each represented as an array of points.
+        hierarchy: Contour hierarchy array containing relationships between contours.
+        scale_factor: Scaling factor to adjust the contour coordinates.
+        shift_x: Horizontal shift to apply to contour coordinates.
+        shift_y: Vertical shift to apply to contour coordinates.
+        process_hierarchy: Whether to process contour relationships based on hierarchy.
+
+    Returns:
+        List of Shapely `Polygon` objects.
+    """
 
     assert len(contours) > 0, "No contours to process"
     polys = []
@@ -72,6 +86,20 @@ def get_shapely_poly(
 def get_multipolygon_geojson_feature(
     contours, idx_map, label, color, scale_factor, show_pbar=True
 ):
+    """
+    Generate a GeoJSON Feature containing a MultiPolygon from contours and their hierarchical relationships.
+
+    Args:
+        contours: List of contours represented as arrays of points.
+        idx_map: Mapping of parent contour indices to their child indices.
+        label: Label for the GeoJSON feature.
+        color: Color property for the feature.
+        scale_factor: Scaling factor to adjust contour coordinates.
+        show_pbar: Whether to display a progress bar during processing.
+
+    Returns:
+        GeoJSON Feature with a MultiPolygon geometry and associated properties.
+    """
     geojson_polygons = []
 
     if show_pbar:
@@ -113,6 +141,18 @@ def get_multipolygon_geojson_feature(
 
 
 def get_geojson_contour(contour, scale_factor=1, shift_x=0, shift_y=0):
+    """
+    Convert a single contour into a GeoJSON-compatible list of coordinates.
+
+    Args:
+        contour: A contour represented as an array of points.
+        scale_factor: Scaling factor to adjust contour coordinates.
+        shift_x: Horizontal shift to apply to contour coordinates.
+        shift_y: Vertical shift to apply to contour coordinates.
+
+    Returns:
+        List of coordinates in GeoJSON format.
+    """
 
     contour = contour.squeeze(1)
     X = (contour[:, 0] * scale_factor) + shift_x
@@ -129,11 +169,31 @@ def get_geojson_contour(contour, scale_factor=1, shift_x=0, shift_y=0):
 
 
 def get_contours(mask):
+    """
+    Extract contours and their hierarchy from a binary mask using OpenCV.
+
+    Args:
+        mask: Binary image where contours are to be detected.
+
+    Returns:
+        contours: List of contours represented as arrays of points.
+        hierarchy: Array describing the relationships between contours.
+    """
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     return contours, hierarchy
 
 
 def get_circularity(contour):
+    """
+    Calculate the circularity of a contour based on its area and perimeter.
+
+    Args:
+        contour: A contour represented as an array of points.
+
+    Returns:
+        circularity: Circularity of the contour (float).
+        area: Area of the contour (float).
+    """
     area = cv2.contourArea(contour)
     perimeter = cv2.arcLength(contour, True)
 
@@ -146,6 +206,20 @@ def get_circularity(contour):
 
 
 def _get_contour_status(contours, hierarchy):
+    """
+    Classify contours based on their relationships in the hierarchy.
+
+    Args:
+        contours: List of contours represented as arrays of points.
+        hierarchy: Contour hierarchy array containing relationships.
+
+    Returns:
+        Dictionary with keys:
+            - 'solo': Contours with no parent or child.
+            - 'only_parent': Contours with no parent but having children.
+            - 'only_daughter': Contours with a parent but no children.
+            - 'parent_daughter': Contours with both a parent and children.
+    """
     solo = []
     only_parent = []
     only_daughter = []
@@ -181,6 +255,16 @@ def _get_contour_status(contours, hierarchy):
 
 
 def get_idx_map(contours, hierarchy):
+    """
+    Create a mapping of contour indices based on their hierarchical relationships.
+
+    Args:
+        contours: List of contours represented as arrays of points.
+        hierarchy: Contour hierarchy array containing relationships.
+
+    Returns:
+        Dictionary mapping parent contour indices to lists of child contour indices.
+    """
     contour_status = _get_contour_status(contours, hierarchy)
     idx_map = {}
     idx_map = dict.fromkeys(contour_status["solo"], [])
@@ -195,6 +279,17 @@ def get_idx_map(contours, hierarchy):
 
 
 def _get_hierarchy_idx_map(idx_map, contour_status, hierarchy):
+    """
+    Update the contour index map by processing a specific set of contour statuses.
+
+    Args:
+        idx_map: Existing mapping of parent indices to child indices.
+        contour_status: Indices of contours to be processed.
+        hierarchy: Contour hierarchy array containing relationships.
+
+    Returns:
+        Updated mapping of parent indices to child indices.
+    """
     for idx in contour_status:
         h = hierarchy[0][idx]
 
@@ -254,6 +349,16 @@ def _get_contour_status(contours, hierarchy):
 
 
 def _get_wkt_str(X, Y):
+    """
+    Generate a Well-Known Text (WKT) representation of a polygon from coordinate arrays.
+
+    Args:
+        X: Array of x-coordinates.
+        Y: Array of y-coordinates.
+
+    Returns:
+        WKT string representing the polygon.
+    """
     wkt = str()
     for x, y in zip(X, Y):
         wkt = wkt + f"{int(x)} {int(y)},"
@@ -263,6 +368,15 @@ def _get_wkt_str(X, Y):
 
 
 def _get_master_wkt(wkt_list):
+    """
+    Combine multiple WKT strings into a master WKT string for a polygon.
+
+    Args:
+        wkt_list: List of WKT strings.
+
+    Returns:
+        Master WKT string representing a polygon with multiple rings.
+    """
     master_wkt = str()
     for wkt in wkt_list:
         master_wkt = f"{master_wkt}{wkt},"
@@ -280,8 +394,21 @@ def process_contour_hierarchy(
     process_daughters=True,
 ):
     """
-    Input:
-    mpp -> mpp at which contours were calculated.
+    Process contour hierarchy to compute master WKT strings, areas, and circularities for contours and their children.
+
+    Args:
+        contours: List of contours represented as arrays of points.
+        hierarchy: Contour hierarchy array containing relationships.
+        contour_mpp: Microns per pixel (mpp) at which contours were calculated.
+        origin_shift: Shift to apply to the origin of coordinates (x, y).
+        rescale_factor: Scaling factor to adjust coordinates.
+        process_daughters: Whether to process child contours.
+
+    Returns:
+        List of dictionaries with keys:
+            - 'master_wkt': WKT string for the polygon.
+            - 'area': Area of the contour in microns².
+            - 'circularity': Circularity of the contour.
     """
     contour_status = _get_contour_status(contours, hierarchy)
     idx_map = {}
@@ -337,6 +464,16 @@ def process_contour_hierarchy(
 
 
 def get_parent_daughter_idx_map(contours, hierarchy):
+    """
+    Generate a mapping of parent contour indices to their child indices based on the hierarchy.
+
+    Args:
+        contours: List of contours represented as arrays of points.
+        hierarchy: Contour hierarchy array containing relationships.
+
+    Returns:
+        Dictionary mapping parent contour indices to lists of child contour indices.
+    """
 
     contour_status = _get_contour_status(contours, hierarchy)
     idx_map = {}
