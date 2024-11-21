@@ -51,6 +51,45 @@ class H5:
 
         return data
 
+    def save_numpy_array(self, array, path, overwrite=False):
+        """
+        Saves a NumPy array as a dataset in an HDF5 file.
+
+        Parameters:
+            array (numpy.ndarray): NumPy to save.
+            path (str or Path): Path to the .h5 file.
+            overwrite (bool): Whether to overwrite the file if it exists.
+        """
+        path = Path(path)
+        if path.exists():
+            if overwrite:
+                path.unlink()
+            else:
+                logger.info(
+                    "File already exists, set overwrite=True for overwriting the file."
+                )
+                return
+                
+        with h5py.File(path, "w") as f:
+            f.create_dataset("array", data=array)
+
+    def load_numpy_array(self, path):
+        """
+        Loads predictions from an HDF5 file.
+
+        Parameters:
+            path (str or Path): Path to the .h5 file.
+
+        Returns:
+            numpy.ndarray: Loaded NumPy array.
+        """
+        path = Path(path)
+        
+        with h5py.File(path, "r") as f:
+            data = f["predictions"][()]
+
+        return data
+
 
 h5 = H5()
 

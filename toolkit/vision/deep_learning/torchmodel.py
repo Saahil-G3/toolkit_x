@@ -6,6 +6,7 @@ import segmentation_models_pytorch as smp
 
 from toolkit.system.gpu.torch import GpuManager
 
+
 class BaseModel(GpuManager):
     def __init__(
         self,
@@ -22,7 +23,7 @@ class BaseModel(GpuManager):
             dataparallel_device_ids=dataparallel_device_ids,
         )
         self.model = None
-            
+
     def load_model(self, replace=False):
         if self.model is None or replace:
             if self._model_class == "smp":
@@ -30,7 +31,10 @@ class BaseModel(GpuManager):
             else:
                 raise ValueError(f"model class{self.model_class} not implemented ")
         else:
-            warnings.warn("Model already loaded, set replace=True for replacing the current model", UserWarning)
+            warnings.warn(
+                "Model already loaded, set replace=True for replacing the current model",
+                UserWarning,
+            )
 
     def _load_smp_model(self):
         if self._architecture == "UnetPlusPlus":
@@ -40,7 +44,7 @@ class BaseModel(GpuManager):
                 in_channels=self._in_channels,
                 classes=self._classes,
             )
-            
+
         else:
             raise ValueError(f"Architecture {self._architecture} not implemented ")
 
@@ -53,11 +57,7 @@ class BaseModel(GpuManager):
         )
 
         self.model.to(self.device)
-        if self.dataparallel:     
+        if self.dataparallel:
             self.model = nn.DataParallel(
                 self.model, device_ids=self.dataparallel_device_ids
             )
-
-
-
-
