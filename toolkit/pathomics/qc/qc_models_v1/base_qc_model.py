@@ -11,11 +11,11 @@ from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
 from toolkit.geometry.shapely_tools import MultiPolygon, geom_to_geojson, loads
 from toolkit.geometry.torch_tools import median_blur
 from toolkit.system.storage.data_io_tools import h5, save_geojson
-from toolkit.vision.deep_learning.torchmodel import BaseModel
+from toolkit.vision.deep_learning.torchmodel import _BaseModel
 from toolkit.vision.image_tools import get_cmap, get_rgb_colors
 
 
-class BaseQCModel(BaseModel):
+class BaseQCModel(_BaseModel):
     def __init__(
         self,
         gpu_id: int = 0,
@@ -23,7 +23,7 @@ class BaseQCModel(BaseModel):
         dataparallel: bool = False,
         dataparallel_device_ids: list[int] = None,
     ):
-        BaseModel.__init__(
+        _BaseModel.__init__(
             self, gpu_id, device_type, dataparallel, dataparallel_device_ids
         )
 

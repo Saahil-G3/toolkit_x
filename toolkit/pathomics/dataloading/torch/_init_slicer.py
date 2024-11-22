@@ -18,21 +18,21 @@ from toolkit.geometry.shapely_tools import (
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
 from toolkit.pathomics.slide.wsi import WSIManager
 from toolkit.system.gpu.torch import GpuManager
-from toolkit.system.logging_tools import Logger
 
 current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
+from toolkit.vision.deep_learning.torchmodel import _BaseModel
 
-class InitSlicer(GpuManager):
+class _InitSlicer(_BaseModel):
     def __init__(
         self,
-        results_path: Path = None,
         gpu_id: int = 0,
         device_type: str = "gpu",
+        results_path: Path = None,
         dataparallel: bool = False,
         dataparallel_device_ids: Optional[List[int]] = None,
     ):
-        GpuManager.__init__(
+        _BaseModel.__init__(
             self,
             gpu_id=gpu_id,
             device_type=device_type,
@@ -40,11 +40,7 @@ class InitSlicer(GpuManager):
             dataparallel_device_ids=dataparallel_device_ids,
         )
 
-        self.logger = Logger(
-            name="diagnosis", log_folder=f"logs/{results_path}"
-        ).get_logger()
-
-        self.results_path = Path("runs") / results_path or Path(
+        self.results_path = Path(f"runs/{results_path}") or Path(
             f"experiment_runs/{current_time}"
         )
 
@@ -62,23 +58,35 @@ class InitSlicer(GpuManager):
         self._coordinates_type = "all_coordinates"
         self.tissue_geom = None
 
-    def set_wsi(self, **kwargs):
+    def set_wsi(self, wsi=None, pass_wsi_object=False, **kwargs):
         """
         Sets the WSI object for the current instance by initializing a WSIManager.
-
+    
+        This method either creates a new WSIManager instance using the provided
+        keyword arguments or directly assigns the given WSI object, based on the
+        `pass_wsi_object` flag.
+    
         Args:
-            tissue_geom (Union[Polygon, MultiPolygon], optional): Tissue geometry associated with the WSI.
-            **kwargs: Additional arguments to initialize WSIManager, such as `wsi_path` and `wsi_type`.
-
+            **kwargs: Additional arguments for initializing WSIManager, including:
+                - `wsi_path` (str): The path to the WSI file.
+                - `wsi_type` (str): The type of the WSI.
+            wsi (optional): An existing WSI object to assign to the instance. Used only if `pass_wsi_object=True`.
+            pass_wsi_object (bool, optional): Flag indicating whether to pass an existing WSI object (`True`) or
+                initialize a new WSIManager (`False`). Defaults to `False`.
+    
         Raises:
-            ValueError: If required arguments for WSIManager are missing.
+            ValueError: If required arguments (`wsi_path` and `wsi_type`) are missing when `pass_wsi_object=False`.
         """
-        if "wsi_path" not in kwargs or "wsi_type" not in kwargs:
-            raise ValueError(
-                "`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager."
-            )
+        if not pass_wsi_object:
+            if "wsi_path" not in kwargs or "wsi_type" not in kwargs:
+                raise ValueError(
+                    "`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager."
+                )
+    
+            self.wsi = WSIManager(**kwargs).wsi
 
-        self.wsi = WSIManager(**kwargs).wsi
+        else:
+            self.wsi = wsi
 
     def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom

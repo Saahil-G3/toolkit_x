@@ -18,24 +18,25 @@ from toolkit.geometry.shapely_tools import (
     get_polygon_coordinates_cpu,
     #get_polygon_coordinates_gpu,
 )
-from ._init_slicer import InitSlicer
+from ._init_slicer import _InitSlicer
 from toolkit.pathomics.slide._tiffslide import TiffSlideWSI
+from toolkit.vision.deep_learning.torchmodel import _BaseModel
 
 
-class Slicer(InitSlicer):
+class Slicer(_InitSlicer):
     def __init__(
         self,
-        results_path: Path = None,
         gpu_id: int = 0,
         device_type: str = "gpu",
+        results_path: Path = None,
         dataparallel: bool = False,
         dataparallel_device_ids=None,
     ):
-        InitSlicer.__init__(
+        _InitSlicer.__init__(
             self,
-            results_path=results_path,
             gpu_id=gpu_id,
             device_type=device_type,
+            results_path=results_path,
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )

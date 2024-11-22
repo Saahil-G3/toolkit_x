@@ -1,13 +1,13 @@
-import warnings
-
 import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
 
 from toolkit.system.gpu.torch import GpuManager
 
+from toolkit.system.logging_tools import Logger
+logger = Logger(name="torchmodel").get_logger()
 
-class BaseModel(GpuManager):
+class _BaseModel(GpuManager):
     def __init__(
         self,
         gpu_id=0,
@@ -24,17 +24,18 @@ class BaseModel(GpuManager):
         )
         self.model = None
 
-    def load_model(self, replace=False):
-        if self.model is None or replace:
+    def load_model(self, replace_model=False):
+        if self.model is None or replace_model:
             if self._model_class == "smp":
                 self._load_smp_model()
+                if self.device_type == "gpu":
+                    logger.info(f"Loaded model {self.model_name} on {self.device_type.upper()}:{self.gpu_id}")
+                else:
+                    logger.info(f"Loaded model {self.model_name} on {self.device_type.upper()}")
             else:
                 raise ValueError(f"model class{self.model_class} not implemented ")
         else:
-            warnings.warn(
-                "Model already loaded, set replace=True for replacing the current model",
-                UserWarning,
-            )
+            logger.warning("Model already loaded, set replace_model=True for replacing the current model")
 
     def _load_smp_model(self):
         if self._architecture == "UnetPlusPlus":

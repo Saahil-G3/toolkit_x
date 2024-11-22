@@ -7,7 +7,7 @@ import geojson
 
 from toolkit.system.logging_tools import Logger
 
-logger = Logger(name="data_io_tools", log_folder="./logs", log_to_csv=True,).get_logger()
+logger = Logger(name="data_io_tools", log_folder="./logs").get_logger()
 
 class H5:
     def __init__(self):

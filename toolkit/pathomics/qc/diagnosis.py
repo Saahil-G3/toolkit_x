@@ -10,9 +10,10 @@ from .qc_models_v1.qc_models import (
     NodeDetectionV1,
 )
 
-from toolkit.pathomics.dataloading.slicer import Slicer
+from toolkit.system.logging_tools import Logger
 from toolkit.geometry.shapely_tools import loads
 from toolkit.system.storage.data_io_tools import h5
+from toolkit.pathomics.dataloading.torch.slicer import Slicer
 
 
 class Diagnosis(Slicer):
@@ -59,7 +60,11 @@ class Diagnosis(Slicer):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        
+
+        self.logger = Logger(
+            name="diagnosis", log_folder=f"logs/{results_path}"
+        ).get_logger()
+
         self.logger.info(f"Initialised diagnosis object at: runs/{results_path}")
 
         self.logger.debug(f"Results path set to: {self.results_path}")
@@ -84,6 +89,8 @@ class Diagnosis(Slicer):
     def run_model_sequence(
         self,
         model_run_sequence: list[str] = ["tissue_model_v1"],
+        replace_model_results=False,
+        replace_model=False,
         **kwargs,
     ) -> None:
         self.logger.info("Running model sequence.")
@@ -94,7 +101,12 @@ class Diagnosis(Slicer):
 
         for model_name in model_run_sequence:
             self.logger.info(f"Running model: {model_name}")
-            self._run_model(model_name=model_name, **kwargs)
+            self._run_model(
+                model_name=model_name,
+                replace_model=replace_model,
+                replace_model_results=replace_model_results,
+                **kwargs,
+            )
 
     def list_available_models(self):
         print("Listing available models.")
@@ -160,7 +172,8 @@ class Diagnosis(Slicer):
     def _run_model(
         self,
         model_name,
-        replace_model=False,
+        replace_model_results,
+        replace_model,
         **kwargs,
     ):
         model = getattr(self, model_name, None)
@@ -177,8 +190,13 @@ class Diagnosis(Slicer):
         # geojson_path = model_results_folder / f"{model.model_name}.geojson"
 
         if h5_path.exists():
-            self.logger.info(f"h5 results for {model_name} already exist at {h5_path}.")
-            return
+            if replace_model_results:
+                self.logger.info(f"replacing h5 results for {model_name} at {h5_path}")
+            else:
+                self.logger.info(
+                    f"h5 results for {model_name} already exist at {h5_path}, set replace_model_results=True for replacing the results."
+                )
+                return
 
         if not model.detects_tissue:
             if self.tissue_geom is None:
@@ -188,8 +206,9 @@ class Diagnosis(Slicer):
                 wkt_dict = h5.load_wkt_dict(tissue_geom_path)
                 tissue_geom = loads(wkt_dict["combined"])
                 self._set_tissue_geom(tissue_geom)
-
-        model.load_model(replace=replace_model)
+        
+        if model.model is None or replace_model:
+            model.load_model(replace_model=replace_model)
 
         self.set_params(
             target_mpp=model.mpp,
