@@ -79,9 +79,10 @@ class Logger:
         Returns the standard log formatter.
         """
         formatter = colorlog.ColoredFormatter(
-            "%(log_color)s%(levelname)s%(reset)s\n%(message)s (%(asctime)s).",
+            "%(log_color)s%(levelname)s (%(asctime)s)%(reset)s\n%(message)s",
             datefmt="%Y-%m-%d %H:%M:%S",
         )
+
         # formatter = logging.Formatter(
         #    "%(message)s - %(asctime)s", datefmt="%d-%m-%Y %H:%M:%S"
         # )

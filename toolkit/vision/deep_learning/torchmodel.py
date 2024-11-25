@@ -51,14 +51,14 @@ class _BaseModel(GpuManager):
 
         self.model.load_state_dict(
             torch.load(
-                self.state_dict_path,
+                self._state_dict_path,
                 map_location=self.device,
                 weights_only=True,
             )
         )
 
         self.model.to(self.device)
-        if self.dataparallel:
+        if self._dataparallel:
             self.model = nn.DataParallel(
-                self.model, device_ids=self.dataparallel_device_ids
+                self.model, device_ids=self._dataparallel_device_ids
             )

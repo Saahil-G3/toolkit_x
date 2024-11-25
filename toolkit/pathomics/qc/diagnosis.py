@@ -65,13 +65,13 @@ class Diagnosis(Slicer):
             name="diagnosis", log_folder=f"logs/{results_path}"
         ).get_logger()
 
-        self.logger.info(f"Initialised diagnosis object at: runs/{results_path}")
+        self.logger.info(f"Initialised diagnosis object at: runs/{results_path}.")
 
-        self.logger.debug(f"Results path set to: {self.results_path}")
+        self.logger.debug(f"Results path set to: {self.results_path}.")
 
         self.default_tissue_detector = default_tissue_detector or "tissue_model_v1"
         self.logger.debug(
-            f"Default tissue detector set to: {self.default_tissue_detector}"
+            f"Default tissue detector set to: {self.default_tissue_detector}."
         )
 
         self.tissue_detection_models = ["tissue_model_v1", "node_detection_v1"]
@@ -100,7 +100,7 @@ class Diagnosis(Slicer):
             model_run_sequence.insert(0, self.default_tissue_detector)
 
         for model_name in model_run_sequence:
-            self.logger.info(f"Running model: {model_name}")
+            self.logger.info(f"Running model: {model_name}.")
             self._run_model(
                 model_name=model_name,
                 replace_model=replace_model,
@@ -191,7 +191,7 @@ class Diagnosis(Slicer):
 
         if h5_path.exists():
             if replace_model_results:
-                self.logger.info(f"replacing h5 results for {model_name} at {h5_path}")
+                self.logger.info(f"replacing h5 results for {model_name} at {h5_path}.")
             else:
                 self.logger.info(
                     f"h5 results for {model_name} already exist at {h5_path}, set replace_model_results=True for replacing the results."

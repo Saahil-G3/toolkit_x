@@ -12,17 +12,17 @@ class GpuManager:
     def __init__(self, gpu_id=0, device_type="gpu", dataparallel=False, dataparallel_device_ids=None):
         self.gpu_id = gpu_id
         self.device_type = device_type
-        self.gpu_exists = torch.cuda.is_available()
-        self.gpu_count = torch.cuda.device_count()
-        self.dataparallel = dataparallel
-        self.dataparallel_device_ids = dataparallel_device_ids
-        if self.gpu_count > 0:
-            self.gpu_names = {}
-            for i in range(self.gpu_count):
-                self.gpu_names[i] = torch.cuda.get_device_name(i)
+        self._gpu_exists = torch.cuda.is_available()
+        self._gpu_count = torch.cuda.device_count()
+        self._dataparallel = dataparallel
+        self._dataparallel_device_ids = dataparallel_device_ids
+        if self._gpu_count > 0:
+            self._gpu_names = {}
+            for i in range(self._gpu_count):
+                self._gpu_names[i] = torch.cuda.get_device_name(i)
 
-            if self.dataparallel_device_ids is None:
-                self.dataparallel_device_ids = list(range(self.gpu_count))
+            if self._dataparallel_device_ids is None:
+                self._dataparallel_device_ids = list(range(self._gpu_count))
                 
         if self.device_type == "gpu":
             self._set_gpu(self.gpu_id)
@@ -38,7 +38,7 @@ class GpuManager:
         return cpu
 
     def _set_gpu(self, gpu_id=0):
-        if self.gpu_exists and gpu_id < self.gpu_count:
+        if self._gpu_exists and gpu_id < self._gpu_count:
             self.device = self._get_gpu(gpu_id=gpu_id)
         else:
             self.device = self._get_cpu()
