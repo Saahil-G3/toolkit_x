@@ -13,7 +13,6 @@ class InferenceDataset(BaseDataset):
             self.slicer._coordinates_type
         ]
         self.params = self.slicer.sph[self.slicer.slice_key]["params"]
-        self.wsi_name = self.slicer.sph[self.slicer.slice_key]["wsi_name"]
         self.device = self.slicer.device
 
     def __len__(self):

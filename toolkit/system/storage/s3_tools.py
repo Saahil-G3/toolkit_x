@@ -2,6 +2,9 @@ import boto3
 from pathlib import Path
 from tqdm.auto import tqdm
 
+from toolkit.system.logging_tools import Logger
+logger = Logger(name="s3_tools").get_logger()
+
 from .data_io_tools import save_pickle
 
 def get_s3_object(endpoint_url, aws_access_key_id, aws_secret_access_key, use_ssl=True):
@@ -45,8 +48,14 @@ class S3:
     ):
         object_key = Path(object_key)
         local_file_path = folder / object_key.name
+        if local_file_path.exists():
+            logger.info(f"File already exists at {local_file_path}")
+            return 
+            
         local_file_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Started downloading {object_key.name}.")
         self._s3.download_file(bucket_name, str(object_key), str(local_file_path))
+        logger.info(f"File downloaded at {local_file_path}.")
 
     def upload_file(self, bucket_name:str, upload_key:str, local_file_path:str):
         self._s3.upload_file(local_file_path, bucket_name, upload_key)
@@ -62,5 +71,8 @@ class S3:
     
         if len(keys_found) >= 1:
             self.queried_keys[query_string] = keys_found
+            logger.info(f"Found keys for {query_string}.")
         else:
-            self.queried_keys[query_string] = "No keys found"
+            logger.info(f"No keys found for {query_string}.")
+
+

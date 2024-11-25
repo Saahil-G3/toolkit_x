@@ -58,7 +58,6 @@ class Slicer(_BaseModel):
             self.device = self._get_cpu()
 
         self.sph = {}  # Slice Parameters History
-        self.default_slice_key = -1
         self.set_params_init = False
         self.recent_slice_key = None
 
@@ -110,12 +109,10 @@ class Slicer(_BaseModel):
         show_progress: bool = False,
     ):
         self.set_params_init = True
-        self.default_slice_key += 1
-        slice_key = slice_key or self.default_slice_key
+        slice_key = slice_key or str(self.wsi.stem)
         self.recent_slice_key = slice_key
         self.sph[slice_key] = {"params": {}}  # Slice Params
         params = self.sph[slice_key]["params"]
-        self.sph[slice_key]["wsi_name"] = Path(self.wsi._wsi_path.name)
         params["target_mpp"] = target_mpp
 
         if input_tuple:
@@ -233,6 +230,9 @@ class Slicer(_BaseModel):
         return region
 
     def _set_slice_key(self, slice_key):
+        """
+        slice_key is intended to be the wsi name always, unless stated otherwise.
+        """
         self.slice_key = slice_key
 
     def _worker_init_tiffslide(self, *args):

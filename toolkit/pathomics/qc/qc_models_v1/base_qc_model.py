@@ -1,21 +1,26 @@
-from pathlib import Path
-
+import h5py
+import torch
 import geojson
 import numpy as np
+from pathlib import Path
 from tqdm.auto import tqdm
+from typing import Optional
+from collections import defaultdict
 
-import torch
-from torch.utils.data import DataLoader
-
+from toolkit.system.logging_tools import Timer
+from toolkit.geometry.torch_tools import median_blur
+from toolkit.pathomics.dataloading.torch.slicer import Slicer
+from toolkit.vision.image_tools import get_cmap, get_rgb_colors
+from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
 from toolkit.geometry.shapely_tools import MultiPolygon, geom_to_geojson, loads
-from toolkit.geometry.torch_tools import median_blur
-from toolkit.system.storage.data_io_tools import h5, save_geojson
-from toolkit.vision.deep_learning.torchmodel import _BaseModel
-from toolkit.vision.image_tools import get_cmap, get_rgb_colors
+
+from toolkit.system.logging_tools import Logger
+
+logger = Logger(name="base_qc_model").get_logger()
 
 
-class BaseQCModel(_BaseModel):
+class BaseQCModel(Slicer):
     def __init__(
         self,
         gpu_id: int = 0,
@@ -23,157 +28,211 @@ class BaseQCModel(_BaseModel):
         dataparallel: bool = False,
         dataparallel_device_ids: list[int] = None,
     ):
-        _BaseModel.__init__(
-            self, gpu_id, device_type, dataparallel, dataparallel_device_ids
+        Slicer.__init__(
+            self,
+            gpu_id=gpu_id,
+            device_type=device_type,
+            dataparallel=dataparallel,
+            dataparallel_device_ids=dataparallel_device_ids,
         )
+        self.timer = Timer()
+
+    def set_wsi(self, project_id, **kwargs1):
+
+        self._set_wsi(**kwargs1)
+        slice_key = str(self.wsi.stem)
+        self._set_params(
+            target_mpp=self._mpp,
+            patch_size=self._patch_size,
+            overlap_size=self._overlap_size,
+            context_size=self._context_size,
+            slice_key=slice_key,
+        )
+
+        self._set_slice_key(slice_key=slice_key)
+
+        self.results_path = (
+            Path("runs") / project_id / self.slice_key / "qc" / self.model_name
+        )
+        self.results_path.mkdir(exist_ok=True, parents=True)
+        self.h5_path = Path(self.results_path) / f"{self.model_name}.h5"
+        self.geojson_path = Path(self.results_path) / f"{self.model_name}.geojson"
+
+        self.custom_timer_metrics = {}
+        self.custom_timer_metrics["wsi"] = self.slice_key
+
+    def store_predictions(
+        self,
+        h5file: h5py.File,
+        dataset_name: str,
+        predictions: np.ndarray,
+        dataset: Optional[h5py.Dataset] = None,
+    ) -> h5py.Dataset:
+        """
+        Store predictions into an HDF5 file, either initializing a dataset or appending to it.
+
+        Args:
+            h5file (h5py.File): Open HDF5 file handle.
+            dataset_name (str): Name of the dataset to store predictions in.
+            predictions (np.ndarray): Array of predictions to store.
+            dataset (Optional[h5py.Dataset]): Existing HDF5 dataset to append to, if any.
+
+        Returns:
+            h5py.Dataset: Updated HDF5 dataset handle.
+        """
+        if dataset is None:
+            dataset = h5file.create_dataset(
+                dataset_name,
+                data=predictions,
+                maxshape=(None, *predictions.shape[1:]),
+                chunks=True,
+                dtype="uint8",
+                compression="gzip",
+                compression_opts=1,
+            )
+        else:
+            current_size = dataset.shape[0]
+            new_size = current_size + predictions.shape[0]
+            dataset.resize(new_size, axis=0)
+            dataset[current_size:new_size] = predictions
+
+        return dataset
 
     def infer(
         self,
-        dataloader: DataLoader,
-        model_results_folder: Path,
+        store_every_batch: bool = False,
         show_infer_progress: bool = True,
-        show_merge_preds_progress: bool = True,
-        show_process_merged_preds_progress: bool = True,
+        **kwargs,
     ):
-        if self.model is None:
-            raise ValueError("No model loaded, load a model first.")
+        self.predictions_path = (
+            self.results_path
+            / f"predictions_ps:{self._patch_size}_os:{self._overlap_size}_cs:{self._context_size}.h5"
+        )
+        if self.predictions_path.exists():
+            logger.info(f"Inference already exists at {self.results_path}.")
+            return
+
+        dataloader = self.get_inference_dataloader(**kwargs)
+        self.timer.start()
         self.model.eval()
 
-        self._set_inference_params(
-            dataloader=dataloader,
-            model_results_folder=model_results_folder,
+        autocast_dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+        accumulated_predictions = []
+
+        iterator = (
+            tqdm(dataloader, desc=f"Inference for {self.model_name}")
+            if show_infer_progress
+            else dataloader
         )
-        self._pred_dicts = []
 
-        if show_infer_progress:
-            iterator = tqdm(self._dataloader, desc=f"Running {self.model_name} model")
-        else:
-            iterator = self._dataloader
-
-        with torch.inference_mode():
-            with torch.autocast(
-                device_type=self.device.type,
-                dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+        with h5py.File(self.predictions_path, "w") as h5file:
+            with torch.inference_mode(), torch.autocast(
+                device_type=self.device.type, dtype=autocast_dtype
             ):
-                batch_idx=0 
-                for batch in iterator:
-                #for batch, tissue_masks in iterator:
+                dataset = None  # Initialize dataset handle
+
+                for batch_idx, batch in enumerate(iterator):
                     batch = batch.to(self.device) - 0.5
-                    preds = self.model(batch)
-                    preds = torch.argmax(preds, 1)
+                    pred_batch = self.model(batch)
+                    pred_batch = torch.argmax(pred_batch, dim=1).float().unsqueeze(1)
+                    pred_batch = median_blur(pred_batch, 15).squeeze(1)
+                    pred_array = pred_batch.to(torch.uint8).cpu().numpy()
 
-                    preds = preds.float().unsqueeze(1)
-                    preds = median_blur(preds, 15)
-                    preds = preds.squeeze(1)
+                    if store_every_batch:
+                        dataset = store_predictions(
+                            h5file, "predictions", pred_array, dataset
+                        )
+                    else:
+                        accumulated_predictions.append(pred_array)
 
-                    #tissue_masks = tissue_masks.to(self.device)
-                    #preds *= tissue_masks
-                    #del tissue_masks
+                if not store_every_batch:
+                    combined_predictions = np.concatenate(
+                        accumulated_predictions, axis=0
+                    )
+                    self.store_predictions(h5file, "predictions", combined_predictions)
 
-                    preds = preds.to("cpu").numpy()
-                    
-                    for pred in preds:
-                        self._pred_dicts.append(self._process_pred(pred))
+        kwargs_dict = {key: value for key, value in kwargs.items()}
+        self.custom_timer_metrics.update(kwargs_dict)
+        self.custom_timer_metrics["store_every_batch"] = store_every_batch
+        self.custom_timer_metrics["autocast_dtype"] = str(autocast_dtype)
+        self.timer.set_custom_timer_metrics(self.custom_timer_metrics)
 
-                if self.device.type == "cuda":
-                    torch.cuda.empty_cache()
+        self.timer.stop()
 
-        self._merge_preds(show_merge_preds_progress=show_merge_preds_progress)
-        self._process_merged_preds(
-            show_process_merged_preds_progress=show_process_merged_preds_progress
-        )
-        self._convert_to_geojson()
+    def process_predictions(
+        self,
+        save_h5=True,
+        save_geojson=True,
+        show_save_h5_progress=True,
+        show_save_geojson_progress=False,
+        show_process_predictions_progress=True,
+    ):
 
-    def _set_inference_params(self, dataloader, model_results_folder):
-        self._dataloader = dataloader
-        self._params = self._dataloader.dataset.params
-        self._coordinates = [
-            coordinate for coordinate, _ in self._dataloader.dataset.coordinates
-        ]
-        
-        #self._coordinates = self._dataloader.dataset.coordinates
-        
-        self.model_results_folder= model_results_folder
-        self.geojson_path = model_results_folder / f"{self.model_name}.geojson"
-        self.h5_path = model_results_folder / f"{self.model_name}.h5"
-        
-    def _process_pred(self, pred):
-        shift_dims = self._params["shift_dims"]
-        pred_sliced = pred[
-            shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
-        ]
-        pred_dict = {}
-        for key, value in self.class_map.items():
-            if key == "bg":
-                continue
-            class_mask = (pred_sliced == value).astype(np.uint8)
-            contours, hierarchy = get_contours(class_mask)
-            pred_dict[key] = [contours, hierarchy]
+        params = self.sph[self.slice_key]["params"]
+        coordinates = self.sph[self.slice_key][self._coordinates_type]
+        shift_dims = params["shift_dims"]
+        scale_factor = params["factor1"]
+        extraction_dims = params["extraction_dims"]
+        box_width = extraction_dims[0] * scale_factor
+        box_height = extraction_dims[1] * scale_factor
 
-        pred_sliced[pred_sliced != 0] = 1
-        contours, hierarchy = get_contours(pred_sliced.astype(np.uint8))
-        pred_dict["combined"] = [contours, hierarchy]
+        shifted_dims = (shift_dims[0] * scale_factor, shift_dims[1] * scale_factor)
+        processed_pred_dict = defaultdict(list)
 
-        return pred_dict
-
-    def _merge_preds(self, show_merge_preds_progress):
-        assert len(self._coordinates) == len(
-            self._pred_dicts
-        ), "number of coordinates and predictions are unequal, can't merge back predictions together."
-
-        self._processed_pred_dict = {}
-        shift_dims = self._params["shift_dims"]
-        scale_factor = self._params["factor1"]
-
-        if show_merge_preds_progress:
-            iterator = tqdm(
-                zip(self._coordinates, self._pred_dicts),
-                total=len(self._pred_dicts),
-                desc="Merging predictions",
-            )
-        else:
-            iterator = zip(self._coordinates, self._pred_dicts)
-
-        for (x, y), pred_dict in iterator:
-            for key, (contours, hierarchy) in pred_dict.items():
-                if len(contours) == 0:
-                    continue
-                polys = get_shapely_poly(
-                    contours,
-                    hierarchy,
-                    scale_factor=scale_factor,
-                    shift_x=x + int(shift_dims[0] * scale_factor),
-                    shift_y=y + int(shift_dims[1] * scale_factor),
+        with h5py.File(self.predictions_path, "r") as h5file:
+            predictions = h5file["predictions"]
+            assert len(predictions) == len(coordinates)
+            if show_process_predictions_progress:
+                iterator = tqdm(
+                    zip(predictions, coordinates),
+                    total=len(coordinates),
+                    desc="Post processing",
                 )
-                if key in self._processed_pred_dict:
-                    self._processed_pred_dict[key].extend(polys)
-                else:
-                    self._processed_pred_dict[key] = []
-                    self._processed_pred_dict[key].extend(polys)
+            else:
+                iterator = zip(predictions, coordinates)
+            for pred, ((x, y), boundary_status) in iterator:
+                if boundary_status:
+                    mask = self._get_boundary_mask(
+                        x, y, box_width, box_height, extraction_dims, scale_factor
+                    )
+                    pred *= mask
 
-    def _process_merged_preds(self, show_process_merged_preds_progress):
-        wkt_dict = {}
+                pred_sliced = pred[
+                    shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
+                ]
+                polys, predicted_class = self._get_prediction_geom(
+                    x, y, pred_sliced, shifted_dims, scale_factor
+                )
 
-        if show_process_merged_preds_progress:
-            iterator = tqdm(
-                self._processed_pred_dict.items(), desc="Processing predictions"
+                if polys is not None:
+                    processed_pred_dict[predicted_class].extend(polys)
+
+        if save_h5:
+            self._save_h5(
+                processed_pred_dict=processed_pred_dict,
+                show_save_h5_progress=show_save_h5_progress,
             )
+
         else:
-            iterator = self._processed_pred_dict.items()
+            processed_pred_dict
 
-        for key, value in iterator:
-            if show_process_merged_preds_progress:
-                iterator.set_description(f"Processing {key.capitalize()}")
-            wkt_dict[key] = MultiPolygon(value).buffer(0).wkt
+        if save_geojson:
+            self._save_geojson(show_save_geojson_progress=show_save_geojson_progress)
 
-        h5.save_wkt_dict(wkt_dict, self.h5_path)
-
-    def _convert_to_geojson(self):
-        wkt_dict = h5.load_wkt_dict(self.h5_path)
+    def _save_geojson(self, wkt_dict_path=None, show_save_geojson_progress=False):
+        if wkt_dict_path:
+            wkt_dict = h5.load_wkt_dict(wkt_dict_path)
+        else:
+            wkt_dict = h5.load_wkt_dict(self.h5_path)
         colors = get_rgb_colors(len(wkt_dict) + 1, cmap=get_cmap(6))
         geojson_features = []
 
-        for idx, dict_item in enumerate(wkt_dict.items()):
+        if show_save_geojson_progress:
+            iterator = tqdm(enumerate(wkt_dict.items()), desc="Saving geojson")
+        else:
+            iterator = enumerate(wkt_dict.items())
+
+        for idx, dict_item in iterator:
             key, value = dict_item
             geojson_feature = geom_to_geojson(loads(value))
             geojson_feature["properties"] = {
@@ -187,3 +246,54 @@ class BaseQCModel(_BaseModel):
             geojson_feature_collection,
             self.geojson_path,
         )
+
+    def _save_h5(self, processed_pred_dict, show_save_h5_progress=True):
+        wkt_dict = {}
+
+        if show_save_h5_progress:
+            iterator = tqdm(processed_pred_dict.items(), desc="Processing h5")
+        else:
+            iterator = self._processed_pred_dict.items()
+
+        for key, value in iterator:
+            if show_save_h5_progress:
+                iterator.set_description(f"Processing {key.capitalize()}")
+            wkt_dict[key] = MultiPolygon(value).buffer(0).wkt
+
+        h5.save_wkt_dict(wkt_dict, self.h5_path)
+
+    def _get_prediction_geom(self, x, y, pred_sliced, shifted_dims, scale_factor):
+        for predicted_class, value in self._class_map.items():
+            if predicted_class == "bg":  # Skip background
+                continue
+            class_mask = (pred_sliced == value).astype(np.uint8)
+            contours, hierarchy = get_contours(class_mask)
+            if contours:  # Process only if contours exist
+                polys = get_shapely_poly(
+                    contours,
+                    hierarchy,
+                    scale_factor=scale_factor,
+                    shift_x=x + int(shifted_dims[0]),
+                    shift_y=y + int(shifted_dims[1]),
+                )
+            else:
+                polys = None
+
+            return polys, predicted_class
+
+    def _get_boundary_mask(
+        self, x, y, box_width, box_height, extraction_dims, scale_factor
+    ):
+        box = get_box(x, y, box_width, box_height)
+        geom_region = self.tissue_geom.intersection(box).buffer(0)
+        if geom_region.area == 0:
+            mask = np.zeros(extraction_dims, dtype=np.uint8)
+        else:
+            mask = self.get_numpy_mask_from_geom(
+                mask_dims=extraction_dims,
+                geom=geom_region,
+                origin=(x, y),
+                scale_factor=1 / scale_factor,
+            )
+
+        return mask
