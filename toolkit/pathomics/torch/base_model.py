@@ -74,8 +74,7 @@ class _BasePathomicsModel(Slicer, ABC):
         self.timer = Timer(
             timer_name=self._model_name, logs_folder=self.base_folder, save_logs=True
         )
-        
-        
+               
     def set_wsi(
         self,
         patch_size=1024,
@@ -90,6 +89,7 @@ class _BasePathomicsModel(Slicer, ABC):
 
         self._set_wsi(**kwargs1)
         slice_key = str(self.wsi.stem)
+        
         self._set_params(
             target_mpp=self._mpp,
             patch_size=self._patch_size,
@@ -150,17 +150,17 @@ class _BasePathomicsModel(Slicer, ABC):
 
         return dataset
 
-    def _save_geojson(self, wkt_dict_path=None, show_progress=True, replace_geojson=False):
+    def _save_geojson(self, wkt_dict_path=None, show_progress=True, replace_geojson=False, cmap_index=6):
         
         if wkt_dict_path:
             wkt_dict = h5.load_wkt_dict(wkt_dict_path)
         else:
             wkt_dict = h5.load_wkt_dict(self.processed_predictions_path)
-        colors = get_rgb_colors(len(wkt_dict) + 1, cmap=get_cmap(6))
+        colors = get_rgb_colors(len(wkt_dict) + 1, cmap=get_cmap(cmap_index))
         geojson_features = []
 
         if show_progress:
-            iterator = tqdm(enumerate(wkt_dict.items()), desc="Saving geojson")
+            iterator = tqdm(enumerate(wkt_dict.items()), total=len(wkt_dict), desc="Saving geojson")
         else:
             iterator = enumerate(wkt_dict.items())
 
@@ -169,7 +169,7 @@ class _BasePathomicsModel(Slicer, ABC):
             geojson_feature = geom_to_geojson(loads(value))
             geojson_feature["properties"] = {
                 "objectType": "annotation",
-                "name": key,
+                "name": f"{key} ({self._model_name})",
                 "color": colors[idx + 1],
             }
             geojson_features.append(geojson_feature)
