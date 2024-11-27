@@ -13,7 +13,7 @@ from .qc_models_v1.qc_models import (
 from toolkit.system.logging_tools import Logger
 from toolkit.geometry.shapely_tools import loads
 from toolkit.system.storage.data_io_tools import h5
-from toolkit.pathomics.dataloading.torch.slicer import Slicer
+from toolkit.pathomics.torch.slicer import Slicer
 
 
 class Diagnosis(Slicer):

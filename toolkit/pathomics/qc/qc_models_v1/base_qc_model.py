@@ -1,3 +1,4 @@
+import cv2
 import h5py
 import torch
 import geojson
@@ -10,7 +11,7 @@ from collections import defaultdict
 
 from toolkit.system.logging_tools import Timer
 from toolkit.geometry.torch_tools import median_blur
-from toolkit.pathomics.dataloading.torch.slicer import Slicer
+from toolkit.pathomics.torch.slicer import Slicer
 from toolkit.vision.image_tools import get_cmap, get_rgb_colors
 from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
@@ -57,7 +58,7 @@ class _BaseQCModel(Slicer):
 
         self.base_folder = Path(base_folder) if base_folder else Path(self.timestamp)
         self.timer = Timer(
-            timer_name="qc_model", logs_folder=self.base_folder, save_logs=True
+            timer_name=self._model_name, logs_folder=self.base_folder, save_logs=True
         )
 
     def _set_result_paths(self) -> None:
@@ -122,11 +123,12 @@ class _BaseQCModel(Slicer):
             self.results_folder
             / f"predictions_ps:{self._patch_size}_os:{self._overlap_size}_cs:{self._context_size}.h5"
         )
-        if self.predictions_path.exists() or not replace_predictions:
-            logger.warning(
-                f"Inference already exists at {self.results_folder}, set replace_predictions=True to replace the current file.."
-            )
-            return
+        if self.predictions_path.exists(): 
+            if not replace_predictions:
+                logger.warning(
+                    f"Inference already exists at {self.results_folder}, set replace_predictions=True to replace the current file.."
+                )
+                return
 
         dataloader = self.get_inference_dataloader(**kwargs)
         self.timer.start()
@@ -135,11 +137,10 @@ class _BaseQCModel(Slicer):
         autocast_dtype = torch.float16 if self.device.type == "cuda" else torch.float32
         accumulated_predictions = []
 
-        iterator = (
-            tqdm(dataloader, desc=f"Inference for {self._model_name}")
-            if show_infer_progress
-            else dataloader
-        )
+        if show_infer_progress:
+            iterator = tqdm(dataloader, desc=f"Inference for {self._model_name}")
+        else:
+            iterator = dataloader
 
         with h5py.File(self.predictions_path, "w") as h5file:
             with torch.inference_mode(), torch.autocast(
@@ -150,8 +151,8 @@ class _BaseQCModel(Slicer):
                 for batch_idx, batch in enumerate(iterator):
                     batch = batch.to(self.device) - 0.5
                     pred_batch = self.model(batch)
-                    pred_batch = torch.argmax(pred_batch, dim=1).float().unsqueeze(1)
-                    pred_batch = median_blur(pred_batch, 15).squeeze(1)
+                    pred_batch = torch.argmax(pred_batch, dim=1).float()#.unsqueeze(1)
+                    #pred_batch = median_blur(pred_batch, 15).squeeze(1)
                     pred_array = pred_batch.to(torch.uint8).cpu().numpy()
 
                     if store_every_batch:
@@ -197,7 +198,7 @@ class _BaseQCModel(Slicer):
         shifted_dims = (shift_dims[0] * scale_factor, shift_dims[1] * scale_factor)
         processed_pred_dict = defaultdict(list)
 
-        if self.h5_path.exists() or not replace_h5:
+        if self.h5_path.exists() and not replace_h5:
             logger.warning(
                 f"h5 already exists at {self.h5_path}, set replace_h5=True to replace the current file."
             )
@@ -214,6 +215,7 @@ class _BaseQCModel(Slicer):
                 else:
                     iterator = zip(predictions, coordinates)
                 for pred, ((x, y), boundary_status) in iterator:
+                    pred = cv2.medianBlur(pred, ksize = 15)
                     if boundary_status:
                         mask = self._get_boundary_mask(
                             x, y, box_width, box_height, extraction_dims, scale_factor
@@ -239,7 +241,7 @@ class _BaseQCModel(Slicer):
             else:
                 return processed_pred_dict
 
-        if self.geojson_path.exists() or not replace_geojson:
+        if self.geojson_path.exists() and not replace_geojson:
             logger.warning(
                 f"Geojson already exists at {self.geojson_path}, set replace_geojson=True to replace the current file."
             )
