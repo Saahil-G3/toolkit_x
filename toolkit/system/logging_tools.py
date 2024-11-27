@@ -123,18 +123,40 @@ class Logger:
 
 
 class Timer:
-    def __init__(self, print_time=False):
+    def __init__(
+        self, print_time=False, timer_name=None, logs_folder=None, save_logs=False
+    ):
         self._start_time = None
         self._end_time = None
         self.print_time = print_time
         self._timer_run_counter = 0
         self._timer_logs = []
         self._custom_metrics = {}
+        
+        if timer_name:
+            self._timer_name = timer_name
+        else:
+            self._timer_name = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 
-    def get_timer_logs(self):
-        return pd.DataFrame(self._timer_logs)
-    
-    def set_custom_timer_metrics(self, custom_metrics:dict):
+        self.logs_folder = Path(logs_folder) if logs_folder else None
+
+        self.timer_logs_path = Path(
+            f"{self.logs_folder}/timer_logs_{self._timer_name}.csv"
+        )
+        self.save_logs = save_logs
+
+    def _save_timer_logs(self):
+        df = pd.DataFrame(self._timer_logs)
+
+        try:
+            with open(self.timer_logs_path, "x") as f:
+                df.to_csv(self.timer_logs_path, index=False, mode="w", header=True)
+        except FileExistsError:
+            df.to_csv(self.timer_logs_path, index=False, mode="a", header=False)
+
+        self._timer_logs = []
+
+    def set_custom_timer_metrics(self, custom_metrics: dict):
         self._custom_metrics = custom_metrics
 
     def start(self):
@@ -174,6 +196,9 @@ class Timer:
             self._temp_timer_dict["unit"] = "minutes"
 
         self._timer_logs.append(self._temp_timer_dict)
+
+        if self.save_logs:
+            self._save_timer_logs()
 
         if self.print_time:
             print(

@@ -3,9 +3,9 @@ from pathlib import Path
 script_dir = Path(__file__).parent
 weights_dir = script_dir / "weights"
 
-from .base_qc_model import BaseQCModel
+from .base_qc_model import _BaseQCModel
 
-class NodeDetectionV1(BaseQCModel):
+class NodeDetectionV1(_BaseQCModel):
     def __init__(
         self,
         gpu_id: int = 0,
@@ -16,7 +16,7 @@ class NodeDetectionV1(BaseQCModel):
         dataparallel: bool = False,
         dataparallel_device_ids: list[int] = None,
     ):
-        BaseQCModel.__init__(
+        _BaseQCModel.__init__(
             self,
             gpu_id=gpu_id,
             device_type=device_type,
@@ -25,7 +25,7 @@ class NodeDetectionV1(BaseQCModel):
         )
 
         self.detects_tissue = True
-        self.model_name = "node_detection_v1"
+        self._model_name = "node_detection_v1"
         self._state_dict_path = Path(f"{weights_dir}/node_detection_v1.pth")
         self._class_map = {"bg": 0, "node": 1}
         self._mpp = 3.2

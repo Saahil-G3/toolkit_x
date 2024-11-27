@@ -29,11 +29,11 @@ class _BaseModel(GpuManager):
             if self._model_class == "smp":
                 self._load_smp_model()
                 if self.device_type == "gpu":
-                    logger.info(f"Loaded model {self.model_name} on {self.device_type.upper()}:{self.gpu_id}")
+                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()}:{self.gpu_id}")
                 else:
-                    logger.info(f"Loaded model {self.model_name} on {self.device_type.upper()}")
+                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()}")
             else:
-                raise ValueError(f"model class{self.model_class} not implemented ")
+                raise ValueError(f"model class{self._model_class} not implemented ")
         else:
             logger.warning("Model already loaded, set replace_model=True for replacing the current model")
 

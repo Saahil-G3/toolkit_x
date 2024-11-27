@@ -5,6 +5,7 @@ import numpy as np
 from pathlib import Path
 from tqdm.auto import tqdm
 from typing import Optional
+from datetime import datetime
 from collections import defaultdict
 
 from toolkit.system.logging_tools import Timer
@@ -20,13 +21,13 @@ from toolkit.system.logging_tools import Logger
 logger = Logger(name="base_qc_model").get_logger()
 
 
-class BaseQCModel(Slicer):
+class _BaseQCModel(Slicer):
     def __init__(
         self,
         gpu_id: int = 0,
         device_type: str = "gpu",
         dataparallel: bool = False,
-        dataparallel_device_ids: list[int] = None,
+        dataparallel_device_ids: Optional[list[int]] = None,
     ):
         Slicer.__init__(
             self,
@@ -35,9 +36,9 @@ class BaseQCModel(Slicer):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        self.timer = Timer()
+        self.timestamp = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 
-    def set_wsi(self, project_id, **kwargs1):
+    def set_wsi(self, result_folder=None, **kwargs1):
 
         self._set_wsi(**kwargs1)
         slice_key = str(self.wsi.stem)
@@ -50,23 +51,35 @@ class BaseQCModel(Slicer):
         )
 
         self._set_slice_key(slice_key=slice_key)
+        self._set_result_paths()
 
-        self.results_path = (
-            Path("runs") / project_id / self.slice_key / "qc" / self.model_name
+    def set_base_folder(self, base_folder: Path = None) -> None:
+
+        self.base_folder = Path(base_folder) if base_folder else Path(self.timestamp)
+        self.timer = Timer(
+            timer_name="qc_model", logs_folder=self.base_folder, save_logs=True
         )
-        self.results_path.mkdir(exist_ok=True, parents=True)
-        self.h5_path = Path(self.results_path) / f"{self.model_name}.h5"
-        self.geojson_path = Path(self.results_path) / f"{self.model_name}.geojson"
+
+    def _set_result_paths(self) -> None:
+
+        self.results_folder = (
+            self.base_folder / self.slice_key / "qc" / self._model_name
+        )
+        self.results_folder.mkdir(exist_ok=True, parents=True)
+        self.h5_path = self.results_folder / f"{self._model_name}.h5"
+        self.geojson_path = self.results_folder / f"{self._model_name}.geojson"
 
         self.custom_timer_metrics = {}
         self.custom_timer_metrics["wsi"] = self.slice_key
 
-    def store_predictions(
+    def _store_predictions(
         self,
         h5file: h5py.File,
         dataset_name: str,
         predictions: np.ndarray,
         dataset: Optional[h5py.Dataset] = None,
+        dtype="uint8",
+        compression="gzip",
     ) -> h5py.Dataset:
         """
         Store predictions into an HDF5 file, either initializing a dataset or appending to it.
@@ -86,9 +99,9 @@ class BaseQCModel(Slicer):
                 data=predictions,
                 maxshape=(None, *predictions.shape[1:]),
                 chunks=True,
-                dtype="uint8",
-                compression="gzip",
-                compression_opts=1,
+                dtype=dtype,
+                compression=compression,
+                # compression_opts=1,
             )
         else:
             current_size = dataset.shape[0]
@@ -102,14 +115,17 @@ class BaseQCModel(Slicer):
         self,
         store_every_batch: bool = False,
         show_infer_progress: bool = True,
+        replace_predictions=False,
         **kwargs,
     ):
         self.predictions_path = (
-            self.results_path
+            self.results_folder
             / f"predictions_ps:{self._patch_size}_os:{self._overlap_size}_cs:{self._context_size}.h5"
         )
-        if self.predictions_path.exists():
-            logger.info(f"Inference already exists at {self.results_path}.")
+        if self.predictions_path.exists() or not replace_predictions:
+            logger.warning(
+                f"Inference already exists at {self.results_folder}, set replace_predictions=True to replace the current file.."
+            )
             return
 
         dataloader = self.get_inference_dataloader(**kwargs)
@@ -120,7 +136,7 @@ class BaseQCModel(Slicer):
         accumulated_predictions = []
 
         iterator = (
-            tqdm(dataloader, desc=f"Inference for {self.model_name}")
+            tqdm(dataloader, desc=f"Inference for {self._model_name}")
             if show_infer_progress
             else dataloader
         )
@@ -139,7 +155,7 @@ class BaseQCModel(Slicer):
                     pred_array = pred_batch.to(torch.uint8).cpu().numpy()
 
                     if store_every_batch:
-                        dataset = store_predictions(
+                        dataset = self._store_predictions(
                             h5file, "predictions", pred_array, dataset
                         )
                     else:
@@ -149,14 +165,14 @@ class BaseQCModel(Slicer):
                     combined_predictions = np.concatenate(
                         accumulated_predictions, axis=0
                     )
-                    self.store_predictions(h5file, "predictions", combined_predictions)
+                    self._store_predictions(h5file, "predictions", combined_predictions)
 
         kwargs_dict = {key: value for key, value in kwargs.items()}
         self.custom_timer_metrics.update(kwargs_dict)
         self.custom_timer_metrics["store_every_batch"] = store_every_batch
         self.custom_timer_metrics["autocast_dtype"] = str(autocast_dtype)
+        self.custom_timer_metrics["model_name"] = self._model_name
         self.timer.set_custom_timer_metrics(self.custom_timer_metrics)
-
         self.timer.stop()
 
     def process_predictions(
@@ -166,6 +182,8 @@ class BaseQCModel(Slicer):
         show_save_h5_progress=True,
         show_save_geojson_progress=False,
         show_process_predictions_progress=True,
+        replace_geojson=False,
+        replace_h5=False,
     ):
 
         params = self.sph[self.slice_key]["params"]
@@ -179,44 +197,53 @@ class BaseQCModel(Slicer):
         shifted_dims = (shift_dims[0] * scale_factor, shift_dims[1] * scale_factor)
         processed_pred_dict = defaultdict(list)
 
-        with h5py.File(self.predictions_path, "r") as h5file:
-            predictions = h5file["predictions"]
-            assert len(predictions) == len(coordinates)
-            if show_process_predictions_progress:
-                iterator = tqdm(
-                    zip(predictions, coordinates),
-                    total=len(coordinates),
-                    desc="Post processing",
-                )
-            else:
-                iterator = zip(predictions, coordinates)
-            for pred, ((x, y), boundary_status) in iterator:
-                if boundary_status:
-                    mask = self._get_boundary_mask(
-                        x, y, box_width, box_height, extraction_dims, scale_factor
-                    )
-                    pred *= mask
-
-                pred_sliced = pred[
-                    shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
-                ]
-                polys, predicted_class = self._get_prediction_geom(
-                    x, y, pred_sliced, shifted_dims, scale_factor
-                )
-
-                if polys is not None:
-                    processed_pred_dict[predicted_class].extend(polys)
-
-        if save_h5:
-            self._save_h5(
-                processed_pred_dict=processed_pred_dict,
-                show_save_h5_progress=show_save_h5_progress,
+        if self.h5_path.exists() or not replace_h5:
+            logger.warning(
+                f"h5 already exists at {self.h5_path}, set replace_h5=True to replace the current file."
             )
-
         else:
-            processed_pred_dict
+            with h5py.File(self.predictions_path, "r") as h5file:
+                predictions = h5file["predictions"]
+                assert len(predictions) == len(coordinates)
+                if show_process_predictions_progress:
+                    iterator = tqdm(
+                        zip(predictions, coordinates),
+                        total=len(coordinates),
+                        desc="Post processing",
+                    )
+                else:
+                    iterator = zip(predictions, coordinates)
+                for pred, ((x, y), boundary_status) in iterator:
+                    if boundary_status:
+                        mask = self._get_boundary_mask(
+                            x, y, box_width, box_height, extraction_dims, scale_factor
+                        )
+                        pred *= mask
 
-        if save_geojson:
+                    pred_sliced = pred[
+                        shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
+                    ]
+                    polys, predicted_class = self._get_prediction_geom(
+                        x, y, pred_sliced, shifted_dims, scale_factor
+                    )
+
+                    if polys is not None:
+                        processed_pred_dict[predicted_class].extend(polys)
+
+            if save_h5:
+                self._save_h5(
+                    processed_pred_dict=processed_pred_dict,
+                    show_save_h5_progress=show_save_h5_progress,
+                )
+
+            else:
+                return processed_pred_dict
+
+        if self.geojson_path.exists() or not replace_geojson:
+            logger.warning(
+                f"Geojson already exists at {self.geojson_path}, set replace_geojson=True to replace the current file."
+            )
+        elif save_geojson or replace_geojson:
             self._save_geojson(show_save_geojson_progress=show_save_geojson_progress)
 
     def _save_geojson(self, wkt_dict_path=None, show_save_geojson_progress=False):
@@ -257,7 +284,7 @@ class BaseQCModel(Slicer):
 
         for key, value in iterator:
             if show_save_h5_progress:
-                iterator.set_description(f"Processing {key.capitalize()}")
+                iterator.set_description(f"Processing h5 for {key.capitalize()}")
             wkt_dict[key] = MultiPolygon(value).buffer(0).wkt
 
         h5.save_wkt_dict(wkt_dict, self.h5_path)

@@ -9,20 +9,11 @@ from typing import Union, List, Optional
 from torch.utils.data import DataLoader
 
 from toolkit.geometry.shapely_tools import (
-    get_box,
-    flatten_geom_collection,
-    get_polygon_coordinates_cpu,
-    prep_geom_for_query,
-    get_box,
-    # get_polygon_coordinates_gpu,
-)
-
-from toolkit.geometry.shapely_tools import (
     loads,
     get_box,
+    prep_geom_for_query,
     flatten_geom_collection,
     get_polygon_coordinates_cpu,
-    #get_polygon_coordinates_gpu,
 )
 
 from toolkit.pathomics.slide.wsi import WSIManager
@@ -58,13 +49,12 @@ class Slicer(_BaseModel):
             self.device = self._get_cpu()
 
         self.sph = {}  # Slice Parameters History
-        self.set_params_init = False
         self.recent_slice_key = None
 
         self._coordinates_type = "all_coordinates"
         self.tissue_geom = None
 
-    def _set_wsi(self, wsi=None, pass_wsi_object=False, **kwargs):
+    def _set_wsi(self, wsi=None, tissue_geom=None, pass_wsi_object=False, **kwargs):
         """
         Sets the WSI object for the current instance by initializing a WSIManager.
     
@@ -89,10 +79,12 @@ class Slicer(_BaseModel):
                     "`wsi_path` and `wsi_type` are required arguments in kwargs for WSIManager."
                 )
     
-            self.wsi = WSIManager(**kwargs).wsi
-
+            self.wsi = WSIManager(tissue_geom=tissue_geom, **kwargs).wsi
         else:
             self.wsi = wsi
+            
+        if tissue_geom:
+            self._set_tissue_geom(tissue_geom=tissue_geom)
 
     def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
@@ -108,7 +100,6 @@ class Slicer(_BaseModel):
         input_tuple: bool = False,
         show_progress: bool = False,
     ):
-        self.set_params_init = True
         slice_key = slice_key or str(self.wsi.stem)
         self.recent_slice_key = slice_key
         self.sph[slice_key] = {"params": {}}  # Slice Params
@@ -139,8 +130,8 @@ class Slicer(_BaseModel):
         factor1 = params["factor1"]
         coordinates = self.sph[slice_key]["all_coordinates"]
 
-        box_width = extraction_dims[0] * factor1
-        box_height = extraction_dims[1] * factor1
+        box_height = extraction_dims[0] * factor1
+        box_width = extraction_dims[1] * factor1
 
         tissue_contact_coordinates = []  # (coordinate, is_boundary)
 
@@ -149,8 +140,7 @@ class Slicer(_BaseModel):
             iterator = tqdm(coordinates, desc="Filtering coordinates")
 
         for (x, y), _ in iterator:
-            
-
+            box = get_box(x, y, box_height, box_width)
             if self.tissue_geom_prepared.intersects(box):
                 if self.tissue_geom_prepared.contains(box):
                     tissue_contact_coordinates.append(((x, y), False))
