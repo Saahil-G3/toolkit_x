@@ -124,37 +124,29 @@ class Logger:
 
 class Timer:
     def __init__(
-        self, print_time=False, timer_name=None, logs_folder=None, save_logs=False
+        self, print_time=False, timer_name=None, logs_folder=None
     ):
         self._start_time = None
         self._end_time = None
         self.print_time = print_time
-        self._timer_run_counter = 0
+        
         self._timer_logs = []
         self._custom_metrics = {}
+        self._lap_idx = 0
+        self.temp_timer_dict = {}
         
         if timer_name:
             self._timer_name = timer_name
         else:
             self._timer_name = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
 
-        self.logs_folder = Path(logs_folder) if logs_folder else None
+        self._save_name = self._timer_name
+
+        self.logs_folder = Path(logs_folder) if logs_folder else Path("logs")
 
         self.timer_logs_path = Path(
             f"{self.logs_folder}/timer_logs_{self._timer_name}.csv"
         )
-        self.save_logs = save_logs
-
-    def _save_timer_logs(self):
-        df = pd.DataFrame(self._timer_logs)
-
-        try:
-            with open(self.timer_logs_path, "x") as f:
-                df.to_csv(self.timer_logs_path, index=False, mode="w", header=True)
-        except FileExistsError:
-            df.to_csv(self.timer_logs_path, index=False, mode="a", header=False)
-
-        self._timer_logs = []
 
     def set_custom_timer_metrics(self, custom_metrics: dict):
         self._custom_metrics = custom_metrics
@@ -162,6 +154,7 @@ class Timer:
     def start(self):
         """Starts the timer."""
         self._start_time = time.perf_counter()
+        self.temp_timer_dict = {}
         self._end_time = None  # Reset end time
 
     def stop(self):
@@ -174,38 +167,106 @@ class Timer:
         Raises:
             RuntimeError: If the timer has not been started before calling stop.
         """
-        self._timer_run_counter += 1
-        self._temp_timer_dict = {}
-        self._temp_timer_dict.update(self._custom_metrics)
-        self._temp_timer_dict["run"] = self._timer_run_counter
+        
         if self._start_time is None:
             raise RuntimeError(
                 "Timer has not been started. Call `start()` before `stop()`."
             )
-
-        self._end_time = time.perf_counter()
-        elapsed_time = self._end_time - self._start_time
-
-        if elapsed_time < 60:
-            elapsed_time = round(elapsed_time, 2)
-            self._temp_timer_dict["time_taken"] = elapsed_time
-            self._temp_timer_dict["unit"] = "seconds"
-        else:
-            elapsed_time = round(elapsed_time / 60, 2)
-            self._temp_timer_dict["time_taken"] = elapsed_time
-            self._temp_timer_dict["unit"] = "minutes"
-
-        self._timer_logs.append(self._temp_timer_dict)
-
-        if self.save_logs:
-            self._save_timer_logs()
+        
+        elapsed_time, unit = self._get_elapsed_time()
+        
+        self.temp_timer_dict.update(self._custom_metrics)
+        self.temp_timer_dict["time_taken"] = f"{elapsed_time} {unit}"
+        
+        self._timer_logs.append(self.temp_timer_dict)
 
         if self.print_time:
-            print(
-                f" {self._temp_timer_dict['time_taken']} {self._temp_timer_dict['unit']}"
-            )
+            print(self.temp_timer_dict["time_taken"])
 
+    def change_timer_name(self, name):
+        self._save_name = f"{self._timer_name}_{name}"
+        self.timer_logs_path = Path(
+            f"{self.logs_folder}/timer_logs_{self._save_name}.csv"
+        )
+        
+    def save_timer_logs(self):    
+        self.temp_timer_dict.update(self._custom_metrics)
+        self._timer_logs.append(self.temp_timer_dict)
+        self._save_timer_logs()
+        
     def reset(self):
         """Resets the timer."""
         self.start_time = None
         self.end_time = None
+        self._start_subtime = None
+        self._end_subtime = None
+        self.temp_timer_dict = {}
+        self._custom_metrics = {}
+        
+        
+    def _get_elapsed_time(self):
+        
+        self._end_time = time.perf_counter()
+        elapsed_time = self._end_time - self._start_time
+        
+        if elapsed_time < 60:
+            elapsed_time = round(elapsed_time, 2)
+            unit = "seconds"
+        else:
+            elapsed_time = round(elapsed_time / 60, 2)
+            unit = "minutes"
+            
+        return elapsed_time, unit
+
+    def start_subtimer(self):
+        """Starts the timer."""
+        self._start_subtime = time.perf_counter()
+        self._end_subtime = None  # Reset end time
+        if not self._start_time:
+            self._start_time = self._start_subtime
+
+    def stop_subtimer(self, process=None, comments=None):
+        if self._start_subtime is None:
+            raise RuntimeError(
+                "Subtimer has not been started. Call `start_subtimer()` before `stop_subtimer()`."
+            )
+        elapsed_time, unit = self._get_elapsed_subtime()
+        self.temp_timer_dict[process] = f"{elapsed_time} {unit}"
+        if comments:
+            self.temp_timer_dict["comments"] =  comments
+
+    def _get_elapsed_subtime(self):
+        
+        self._end_subtime = time.perf_counter()
+        elapsed_time = self._end_subtime - self._start_subtime
+        
+        if elapsed_time < 60:
+            elapsed_time = round(elapsed_time, 2)
+            unit = "seconds"
+        else:
+            elapsed_time = round(elapsed_time / 60, 2)
+            unit = "minutes"
+            
+        return elapsed_time, unit
+        
+    def lap(self, process=None, comments=None):
+        if self._start_time is None:
+            raise RuntimeError(
+                "Timer has not been started. Call `start()` before `stop()`."
+            )
+        elapsed_time, unit = self._get_elapsed_time()
+        self.temp_timer_dict[f"lap {self._lap_idx}: {process}"] = f"{elapsed_time} {unit}"
+        if comments:
+            self.temp_timer_dict[f"lap {self._lap_idx}: comments"] = comments
+        self._lap_idx +=1
+        
+    def _save_timer_logs(self):
+        df = pd.DataFrame(self._timer_logs)
+
+        try:
+            with open(self.timer_logs_path, "x") as f:
+                df.to_csv(self.timer_logs_path, index=False, mode="w", header=True)
+        except FileExistsError:
+            df.to_csv(self.timer_logs_path, index=False, mode="a", header=False)
+
+        self._timer_logs = []
