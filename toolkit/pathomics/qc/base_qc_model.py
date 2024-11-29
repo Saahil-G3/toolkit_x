@@ -10,7 +10,6 @@ from abc import ABC, abstractmethod
 import torch
 
 from toolkit.geometry.torch_tools import median_blur
-from toolkit.vision.image_tools import plot_image_series
 from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.pathomics.torch.base_pathomics_model import BasePathomicsModel
 from toolkit.geometry.shapely_tools import MultiPolygon, geom_to_geojson, loads

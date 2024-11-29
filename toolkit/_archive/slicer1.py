@@ -21,6 +21,47 @@ from ._init_slicer import _InitSlicer
 from toolkit.pathomics.slide._tiffslide import TiffSlideWSI
 from toolkit.vision.deep_learning.torchmodel import _BaseModel
 
+def extract_patches_with_coordinates(image, patch_dims, overlap_dims):
+    """
+    Extract patches from a large numpy array with specified patch size and overlap.
+
+    Parameters:
+    - image: numpy array, the input image
+    - patch_size: tuple, (h, w), size of the patches to be extracted
+    - overlap: tuple, (oh, ow), overlap in the vertical and horizontal directions
+
+    Returns:
+    - patches: list, a list of extracted patches
+    - coordinates: list, a list of tuples containing the (start_row, start_col) coordinates of each patch
+    """
+
+    h, w = patch_dims
+    oh, ow = overlap_dims
+
+    patches = []
+    coordinates = []
+
+    flag = 0
+
+    print("Extracting Patches")
+    for i in range(0, image.shape[0], h - oh):
+        if i + h > image.shape[0]:
+            i = image.shape[0] - h
+
+        for j in range(0, image.shape[1], w - ow):
+            if j + w > image.shape[1]:
+                j = image.shape[1] - w
+
+            patch = image[i : i + h, j : j + w, :]
+
+            patches.append(patch)
+            coordinates.append((i, j))
+            flag += 1
+
+    print(f"Complete!")
+    print(f"Extracted {flag} patches.")
+
+    return np.array(patches), coordinates
 
 class Slicer(_InitSlicer):
     def __init__(

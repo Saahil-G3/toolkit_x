@@ -1,9 +1,18 @@
+"""
+for documentaion refer to - 
+https://docs.pathomation.com/sdk/pma.python.documentation/pma_python.html
+"""
+
 from pathlib import Path
+from pma_python import core
 from typing import Union, List, Optional
 
-from pma_python import core
-
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
+from toolkit.vision.colors import percentage_to_hex_alpha
+
+from toolkit.system.logging_tools import Logger
+text_logger = Logger(name="pathomation", log_to_console=False, log_to_txt=True, log_to_csv=True, add_timestamp=True).get_logger()
+console_logger = Logger(name="pathomation").get_logger()
 
 from ._init_wsi import InitWSI
 
@@ -137,3 +146,51 @@ class PathomationWSI(InitWSI):
 
                 coordinates.append(((x, y), False))
         return coordinates
+        
+    #Pathomation Specific Methods
+    def add_annotation(
+        self,
+        wkt,
+        color="#06d6a0",
+        classification="Unclassified",
+        lineThickness=2,
+        opacity=100,
+        notes=" ",
+        fillColor="#FFFFFF00",
+        layerID=666,
+    ):
+    
+        hex_alpha = percentage_to_hex_alpha(opacity)
+        color = color.upper()
+        fillColor = fillColor if fillColor else color
+    
+        ann = core.dummy_annotation()
+        ann["geometry"] = wkt
+        ann["lineThickness"] = lineThickness
+        ann["color"] = f"{color}{hex_alpha}"
+        ann["classification"] = classification
+        ann["notes"] = notes
+        ann["fillColor"] = f"{fillColor}{hex_alpha}"
+    
+        add_annotation_output = core.add_annotations(
+            slideRef=self._slideRef,
+            classification=ann["classification"],
+            notes=ann["notes"],
+            anns=ann,
+            layerID=layerID,
+            sessionID=self.sessionID,
+        )
+        console_logger.info(f"Add annotation: {add_annotation_output['Code']}")
+        text_logger.info(f"Added annotation for: {self.name}.")
+        text_logger.info(f"{add_annotation_output}")
+        
+    def clear_annotations(self, layerID=666):
+        clear_annotations_output = core.clear_annotations(
+            slideRef=self._slideRef, layerID=layerID, sessionID=self.sessionID
+        )
+        if clear_annotations_output:
+            text_logger.info(f"Cleared annotation for: {self.name}.")
+            console_logger.info(f"Cleared annotation at layer {layerID}.")
+        else:
+            console_logger.warning(f"Unable to clear annotation at layer {layerID}.")
+            

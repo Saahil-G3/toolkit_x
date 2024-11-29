@@ -28,6 +28,7 @@ class Logger:
         self,
         name: str,
         log_folder: str = "logs",
+        log_to_console=True,
         log_to_txt: bool = False,
         log_to_csv: bool = False,
         add_timestamp: bool = False,
@@ -52,9 +53,10 @@ class Logger:
         self.log_folder = Path(log_folder)
 
         # Handlers for logging
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(self._get_formatter())
-        self.logger.addHandler(console_handler)
+        if log_to_console:
+            console_handler = logging.StreamHandler()
+            console_handler.setFormatter(self._get_formatter())
+            self.logger.addHandler(console_handler)
 
         if log_to_txt:
             self.log_folder.mkdir(parents=True, exist_ok=True)
@@ -62,7 +64,7 @@ class Logger:
             txt_file_handler = RotatingFileHandler(
                 txt_log_file, maxBytes=10 * 1024 * 1024, backupCount=5
             )
-            txt_file_handler.setFormatter(self._get_formatter())
+            txt_file_handler.setFormatter(self._get_text_formatter())
             self.logger.addHandler(txt_file_handler)
 
         if log_to_csv:
@@ -91,6 +93,13 @@ class Logger:
         #    datefmt="%d-%m-%Y %H:%M:%S",
         # )
 
+        return formatter
+
+    @staticmethod
+    def _get_text_formatter():
+        formatter = logging.Formatter(
+            "%(asctime)s,%(levelname)s\n%(message)s", datefmt="%d-%m-%Y %H:%M:%S"
+        )
         return formatter
 
     @staticmethod
@@ -124,17 +133,20 @@ class Logger:
 
 class Timer:
     def __init__(
-        self, print_time=False, timer_name=None, logs_folder=None
+        self,
+        print_time=False,
+        timer_name=None,
+        logs_folder: str = "logs",
     ):
         self._start_time = None
         self._end_time = None
         self.print_time = print_time
-        
+
         self._timer_logs = []
         self._custom_metrics = {}
         self._lap_idx = 0
         self.temp_timer_dict = {}
-        
+
         if timer_name:
             self._timer_name = timer_name
         else:
@@ -142,7 +154,7 @@ class Timer:
 
         self._save_name = self._timer_name
 
-        self.logs_folder = Path(logs_folder) if logs_folder else Path("logs")
+        self.logs_folder = Path(logs_folder)
 
         self.timer_logs_path = Path(
             f"{self.logs_folder}/timer_logs_{self._timer_name}.csv"
@@ -167,17 +179,17 @@ class Timer:
         Raises:
             RuntimeError: If the timer has not been started before calling stop.
         """
-        
+
         if self._start_time is None:
             raise RuntimeError(
                 "Timer has not been started. Call `start()` before `stop()`."
             )
-        
+
         elapsed_time, unit = self._get_elapsed_time()
-        
+
         self.temp_timer_dict.update(self._custom_metrics)
         self.temp_timer_dict["time_taken"] = f"{elapsed_time} {unit}"
-        
+
         self._timer_logs.append(self.temp_timer_dict)
 
         if self.print_time:
@@ -188,12 +200,12 @@ class Timer:
         self.timer_logs_path = Path(
             f"{self.logs_folder}/timer_logs_{self._save_name}.csv"
         )
-        
-    def save_timer_logs(self):    
+
+    def save_timer_logs(self):
         self.temp_timer_dict.update(self._custom_metrics)
         self._timer_logs.append(self.temp_timer_dict)
         self._save_timer_logs()
-        
+
     def reset(self):
         """Resets the timer."""
         self.start_time = None
@@ -202,20 +214,19 @@ class Timer:
         self._end_subtime = None
         self.temp_timer_dict = {}
         self._custom_metrics = {}
-        
-        
+
     def _get_elapsed_time(self):
-        
+
         self._end_time = time.perf_counter()
         elapsed_time = self._end_time - self._start_time
-        
+
         if elapsed_time < 60:
             elapsed_time = round(elapsed_time, 2)
             unit = "seconds"
         else:
             elapsed_time = round(elapsed_time / 60, 2)
             unit = "minutes"
-            
+
         return elapsed_time, unit
 
     def start_subtimer(self):
@@ -233,33 +244,35 @@ class Timer:
         elapsed_time, unit = self._get_elapsed_subtime()
         self.temp_timer_dict[process] = f"{elapsed_time} {unit}"
         if comments:
-            self.temp_timer_dict["comments"] =  comments
+            self.temp_timer_dict["comments"] = comments
 
     def _get_elapsed_subtime(self):
-        
+
         self._end_subtime = time.perf_counter()
         elapsed_time = self._end_subtime - self._start_subtime
-        
+
         if elapsed_time < 60:
             elapsed_time = round(elapsed_time, 2)
             unit = "seconds"
         else:
             elapsed_time = round(elapsed_time / 60, 2)
             unit = "minutes"
-            
+
         return elapsed_time, unit
-        
+
     def lap(self, process=None, comments=None):
         if self._start_time is None:
             raise RuntimeError(
                 "Timer has not been started. Call `start()` before `stop()`."
             )
         elapsed_time, unit = self._get_elapsed_time()
-        self.temp_timer_dict[f"lap {self._lap_idx}: {process}"] = f"{elapsed_time} {unit}"
+        self.temp_timer_dict[f"lap {self._lap_idx}: {process}"] = (
+            f"{elapsed_time} {unit}"
+        )
         if comments:
             self.temp_timer_dict[f"lap {self._lap_idx}: comments"] = comments
-        self._lap_idx +=1
-        
+        self._lap_idx += 1
+
     def _save_timer_logs(self):
         df = pd.DataFrame(self._timer_logs)
 

@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 
 from toolkit.system.logging_tools import Timer
 from toolkit.pathomics.torch.slicer import Slicer
-from toolkit.vision.image_tools import get_cmap, get_rgb_colors
+from toolkit.vision.colors import get_rgb_colors, get_cmap
 from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
 
