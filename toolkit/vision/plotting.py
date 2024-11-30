@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 
 from .colors import get_rgb_colors
 
-def plot_image(image, figsize=(5, 5), save_path=False, plot=True):
+
+def plot_image(image, **kwargs):
     """
     Plot an image with optional saving and display options.
 
@@ -15,23 +16,16 @@ def plot_image(image, figsize=(5, 5), save_path=False, plot=True):
     - save_path: If specified, saves the image to the provided file path. Default is False.
     - plot: If True, displays the image. If False, the figure is closed. Default is True.
     """
+    _plot_images([image], **kwargs)
 
-    plt.figure(figsize=figsize)
-    plt.imshow(image)
-    plt.axis("off")
 
-    if save_path:
-        plt.savefig(
-            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=300
-        )
-        print("Image saved")
-
-    if plot:
-        plt.show()
-    else:
-        plt.close()
-
-def plot_overlay(image, mask, save_path=False, figsize=(10, 10), dpi=300, plot=True):
+def plot_overlay(
+    image,
+    mask,
+    plot=True,
+    alpha=150,
+    **kwargs,
+):
     """
     Overlay an image with a mask using a random color scheme.
     Args:
@@ -41,21 +35,9 @@ def plot_overlay(image, mask, save_path=False, figsize=(10, 10), dpi=300, plot=T
     Returns:
     - numpy.ndarray: Overlayed image with alpha channel.
     """
-    plt.figure(figsize=figsize)
-    plt.imshow(image)
-    plt.imshow(get_random_overlay(image, mask, alpha=120))
-    plt.axis("off")
+    images = [image, get_overlay(image, mask, alpha=alpha)]
+    _plot_images(images, **kwargs)
 
-    if save_path:
-        plt.savefig(
-            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=dpi
-        )
-        print("Image saved")
-
-    if plot:
-        plt.show()
-    else:
-        plt.close()
 
 def plot_image_series(images, title=None, save_path=False, figsize=(15, 5), plot=True):
     """
@@ -97,8 +79,9 @@ def plot_image_series(images, title=None, save_path=False, figsize=(15, 5), plot
     else:
         plt.close(fig)
 
+
 def plot_overlay_series(
-    images, masks, title=None, save_path=False, figsize=(15, 5), plot=True
+    images, masks, title=None, save_path=False, figsize=(15, 5), plot=True, alpha=150
 ):
     """
     Overlay a series of images with masks and plot them with optional titles.
@@ -130,7 +113,7 @@ def plot_overlay_series(
         else:
             ax.set_title(title[i])
         ax.imshow(images[i])
-        ax.imshow(get_random_overlay(images[i], masks[i]))
+        ax.imshow(get_overlay(images[i], masks[i], alpha=alpha))
         ax.axis("off")
 
     if save_path:
@@ -142,71 +125,91 @@ def plot_overlay_series(
         plt.close(fig)
 
 
-def get_random_overlay(image, mask, alpha=150):
+def get_overlay(image, mask, alpha=200):
     """
-    Generate a random overlay on an image based on a segmentation mask.
+    Generate a random overlay with transparency based on a segmentation mask.
+
+    This function overlays a segmentation mask onto an input image, assigning random colors to each unique class
+    in the mask and adding an alpha channel to control transparency.
 
     Args:
-    - image: The input image to overlay with masks.
-    - mask: The segmentation mask where each unique value represents a different class.
-    - alpha: Integer specifying the transparency level for overlayed areas. Default is 150.
+    - image: ndarray
+        The input image onto which the overlay will be applied. It should have 3 channels (RGB).
+    - mask: ndarray
+        A 2D array representing the segmentation mask. Each unique value in the mask corresponds to a different class.
+    - alpha: int, optional
+        The transparency level for overlayed regions, where 0 is fully transparent and 255 is fully opaque. Default is 200.
 
     Returns:
-    - overlayed_image: Image with an alpha channel containing the overlaid masks.
+    - overlayed_image: ndarray
+        A 4-channel image (RGB + Alpha) containing the original image overlaid with the colored segmentation mask.
     """
 
-    class_idx = np.unique(mask)
-    overlayed_image = np.zeros_like(image, dtype=np.uint8)
-    alpha_channel = np.zeros_like(mask, dtype=np.uint8)
-    alpha_value_for_cells = alpha
+    # Generate random colors for each class
+    classes = np.unique(mask)
+    colors = get_rgb_colors(len(classes))
 
-    colors = get_rgb_colors(len(class_idx))
+    # Create an overlay image and alpha channel
+    overlayed_image = np.zeros((*mask.shape, 3), dtype=np.uint8)
+    alpha_channel = np.zeros(mask.shape, dtype=np.uint8)
 
-    for idx, i in enumerate(class_idx):
-        if i != 0:
-            overlayed_pixels = mask == i
-            overlayed_image[overlayed_pixels] = colors[
-                idx
-            ]  # (random.randint(0, 255),random.randint(0, 255),random.randint(0, 255))
-            alpha_channel[overlayed_pixels] = alpha_value_for_cells
-    alpha_channel[mask == 0] = 0
-    overlayed_image = cv2.merge((overlayed_image, alpha_channel))
+    # Apply colors and alpha values for each class (except background)
+    for idx, class_id in enumerate(classes[classes != 0]):
+        overlayed_pixels = mask == class_id
+        overlayed_image[overlayed_pixels] = colors[idx]
+        alpha_channel[overlayed_pixels] = alpha
+
+    # Merge overlay and alpha channel
+    overlayed_image = cv2.merge((*cv2.split(overlayed_image), alpha_channel))
 
     return overlayed_image
 
 
-def get_classification_overlay(image, mask, alpha=150):
+def _plot_images(
+    images,
+    figsize=(5, 5),
+    axis="off",
+    title=None,
+    title_fontsize=14,
+    plot=True,
+    dpi=300,
+    save_path=False,
+):
     """
-    Create a classification overlay on an image based on a mask.
+    Plot one or more images with optional titles and save functionality.
+
+    This function displays one or more images in a single figure, with options to adjust the figure size,
+    axis visibility, and add a title. It also allows saving the figure to a specified path.
 
     Args:
-    - image: The input image to overlay.
-    - mask: The segmentation mask where each unique value represents a different class.
-    - alpha: Integer specifying the transparency level for overlayed areas. Default is 150.
+    - images (list of numpy.ndarray): List of images to plot. Each image should be a 2D or 3D array.
+    - figsize (tuple, optional): Tuple specifying the figure size as (width, height) in inches. Default is (5, 5).
+    - axis (str, optional): Specifies whether to display axes. Use "on" to show axes or "off" to hide them. Default is "off".
+    - title (str, optional): Title to display above the images. If None, no title is added. Default is None.
+    - title_fontsize (int, optional): Font size for the title. Default is 14.
+    - plot (bool, optional): Whether to display the figure. If False, the figure is closed after saving. Default is True.
+    - dpi (int, optional): Resolution of the saved figure in dots per inch. Default is 300.
+    - save_path (str or bool, optional): File path to save the figure. If False, the figure is not saved. Default is False.
 
     Returns:
-    - overlayed_image: Image with an alpha channel containing the overlaid classification masks.
+    - None
     """
 
-    class_idx = np.unique(mask)
-    colors = get_rgb_colors(len(class_idx))
+    plt.figure(figsize=figsize)
+    for image in images:
+        plt.imshow(image)
 
-    if len(class_idx) > len(color_dict):
-        print("Classess more than colors")
-        return
+    plt.axis(axis)
+    if title:
+        plt.title(title, fontsize=title_fontsize)
 
-    overlayed_image = np.zeros_like(image, dtype=np.uint8)
-    alpha_channel = np.zeros_like(mask, dtype=np.uint8)
-    alpha_value_for_cells = alpha
+    if save_path:
+        plt.savefig(
+            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=dpi
+        )
+        print("Image saved")
 
-    print(f"Total classes: {len(class_idx)} --> {class_idx}")
-
-    for i in tqdm(class_idx):
-        if i != 0:
-            overlayed_pixels = mask == i
-            overlayed_image[overlayed_pixels] = color_dict[i]
-            alpha_channel[overlayed_pixels] = alpha_value_for_cells
-    alpha_channel[mask == 0] = 0
-    overlayed_image = cv2.merge((overlayed_image, alpha_channel))
-
-    return overlayed_image
+    if plot:
+        plt.show()
+    else:
+        plt.close()

@@ -4,14 +4,22 @@ https://docs.pathomation.com/sdk/pma.python.documentation/pma_python.html
 """
 
 from pathlib import Path
+from tqdm.auto import tqdm
 from pma_python import core
 from typing import Union, List, Optional
 
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
-from toolkit.vision.colors import percentage_to_hex_alpha
+from toolkit.vision.colors import get_hex_colors, percentage_to_hex_alpha
 
 from toolkit.system.logging_tools import Logger
-text_logger = Logger(name="pathomation", log_to_console=False, log_to_txt=True, log_to_csv=True, add_timestamp=True).get_logger()
+
+text_logger = Logger(
+    name="pathomation",
+    log_to_console=False,
+    log_to_txt=True,
+    log_to_csv=True,
+    add_timestamp=True,
+).get_logger()
 console_logger = Logger(name="pathomation").get_logger()
 
 from ._init_wsi import InitWSI
@@ -146,45 +154,123 @@ class PathomationWSI(InitWSI):
 
                 coordinates.append(((x, y), False))
         return coordinates
-        
-    #Pathomation Specific Methods
+
+    # Pathomation Specific Methods
     def add_annotation(
-        self,
-        wkt,
-        color="#06d6a0",
-        classification="Unclassified",
-        lineThickness=2,
-        opacity=100,
-        notes=" ",
-        fillColor="#FFFFFF00",
-        layerID=666,
+        self, wkt, layerID=666, classification="Unclassified", fill_opacity=65
     ):
-    
-        hex_alpha = percentage_to_hex_alpha(opacity)
-        color = color.upper()
-        fillColor = fillColor if fillColor else color
-    
+        """
+        Adds a single annotation to the slide using the PMA.core module. The annotation is styled with a predefined color and fill opacity, and uploaded to a specified layer.
+
+        Args:
+            wkt (str): The geometry of the annotation in Well-Known Text (WKT) format.
+            layerID (int, optional): The identifier for the layer to which the annotation will be added. Defaults to 666.
+            classification (str, optional): The classification label for the annotation. Defaults to "Unclassified".
+            fill_opacity (int, optional): The opacity of the fill color, where 0 is fully transparent and 100 is fully opaque. Defaults to 80.
+
+        Example:
+            instance.add_annotation(wkt=gc_mpp2_geom.wkt, classification="Tumor", fill_opacity=90)
+        """
         ann = core.dummy_annotation()
+
         ann["geometry"] = wkt
-        ann["lineThickness"] = lineThickness
-        ann["color"] = f"{color}{hex_alpha}"
-        ann["classification"] = classification
-        ann["notes"] = notes
-        ann["fillColor"] = f"{fillColor}{hex_alpha}"
-    
+        ann["lineThickness"] = 3
+        ann["color"] = f"#000000FF"
+        ann["fillColor"] = (
+            f"#B2FF9E{percentage_to_hex_alpha(fill_opacity)}"  # Pale Lime
+        )
+
         add_annotation_output = core.add_annotations(
             slideRef=self._slideRef,
-            classification=ann["classification"],
-            notes=ann["notes"],
+            classification=classification,
+            notes=classification,
             anns=ann,
             layerID=layerID,
             sessionID=self.sessionID,
         )
+
         console_logger.info(f"Add annotation: {add_annotation_output['Code']}")
         text_logger.info(f"Added annotation for: {self.name}.")
         text_logger.info(f"{add_annotation_output}")
-        
+
+    def add_annotations(self, anns, layerID=666, show_progress=True, fill_opacity=65):
+        """
+        Adds annotations to the slide using the PMA.core module. Each annotation is styled with unique colors and uploaded to a specified layer.
+
+        Args:
+            anns (list): A list of dictionaries where each dictionary represents an annotation.
+                Each dictionary must contain:
+                - `wkt` (str): The geometry of the annotation in Well-Known Text (WKT) format.
+                - `classification` (str): The classification label for the annotation.
+                Optionally, it can contain:
+                - `notes` (str): Additional notes for the annotation. If not provided, it will default to the value of `classification`.
+            layerID (int, optional): The identifier for the layer to which the annotations will be added. Defaults to 666.
+            show_progress (bool, optional): Whether to display a progress bar during the upload process. Defaults to True.
+
+        Raises:
+            ValueError: If any annotation in `anns` is missing the required keys: `wkt` or `classification`.
+
+        Example:
+            anns = [
+                {"wkt": gc_mpp2_geom.wkt, "classification": gc_mpp2._model_name},
+                {"wkt": gc_mpp1_geom.wkt, "classification": gc_mpp1._model_name, "notes": "Important region"},
+            ]
+            instance.add_annotations(anns, layerID=42, show_progress=False)
+        """
+
+        required_keys = {"wkt", "classification"}
+        for ann in anns:
+            if not required_keys.issubset(ann.keys()):
+                raise ValueError(
+                    f"Each annotation must contain the keys {required_keys}. Missing in: {ann}"
+                )
+            if "notes" not in ann:
+                ann["notes"] = ann["classification"]
+
+        colors = get_hex_colors(len(anns))
+        processed_anns = []
+
+        if show_progress:
+            iterator = enumerate(tqdm(anns, desc="Uploading annotations to pma"))
+        else:
+            iterator = enumerate(anns)
+
+        for idx, ann in iterator:
+
+            fill_color = colors[idx]
+            dummy_ann = core.dummy_annotation()
+            dummy_ann["lineThickness"] = 3
+            dummy_ann["color"] = f"#000000FF"
+            dummy_ann["fillColor"] = (
+                f"{fill_color}{percentage_to_hex_alpha(fill_opacity)}"
+            )
+
+            dummy_ann["geometry"] = ann["wkt"]
+
+            add_annotation_output = core.add_annotations(
+                slideRef=self._slideRef,
+                classification=ann["classification"],
+                notes=ann["notes"],
+                anns=dummy_ann,
+                layerID=layerID,
+                sessionID=self.sessionID,
+            )
+
+            console_logger.info(f"Add annotation: {add_annotation_output['Code']}")
+            text_logger.info(f"Added annotation for: {self.name}.")
+            text_logger.info(f"{add_annotation_output}")
+
     def clear_annotations(self, layerID=666):
+        """
+        Clears annotations from a specified layer on the slide using the PMA.core module.
+
+        Args:
+            layerID (int, optional): The identifier for the layer from which the annotations will be cleared. Defaults to 666.
+
+        Example:
+            instance.clear_annotations(layerID=42)
+        """
+
         clear_annotations_output = core.clear_annotations(
             slideRef=self._slideRef, layerID=layerID, sessionID=self.sessionID
         )
@@ -193,4 +279,3 @@ class PathomationWSI(InitWSI):
             console_logger.info(f"Cleared annotation at layer {layerID}.")
         else:
             console_logger.warning(f"Unable to clear annotation at layer {layerID}.")
-            
