@@ -1,10 +1,12 @@
+from abc import ABC
 from pathlib import Path
 
 import numpy as np
 
 
-class InitWSI:
+class BaseWSI(ABC):
     def __init__(self, wsi_path: Path, tissue_geom=None):
+        super().__init__()
         self.tissue_geom = tissue_geom
         self._wsi_path = Path(wsi_path)
         self.name = Path(self._wsi_path.name)
@@ -32,7 +34,7 @@ class InitWSI:
         rescale = self.factor_mpp(target_mpp)
         scale = 1 / rescale
         return scale, rescale
-
+        
     @staticmethod
     def round_to_nearest_even(x):
         return round(x / 2) * 2

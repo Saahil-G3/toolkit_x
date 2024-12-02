@@ -126,24 +126,6 @@ def plot_overlay_series(
 
 
 def get_overlay(image, mask, alpha=200):
-    """
-    Generate a random overlay with transparency based on a segmentation mask.
-
-    This function overlays a segmentation mask onto an input image, assigning random colors to each unique class
-    in the mask and adding an alpha channel to control transparency.
-
-    Args:
-    - image: ndarray
-        The input image onto which the overlay will be applied. It should have 3 channels (RGB).
-    - mask: ndarray
-        A 2D array representing the segmentation mask. Each unique value in the mask corresponds to a different class.
-    - alpha: int, optional
-        The transparency level for overlayed regions, where 0 is fully transparent and 255 is fully opaque. Default is 200.
-
-    Returns:
-    - overlayed_image: ndarray
-        A 4-channel image (RGB + Alpha) containing the original image overlaid with the colored segmentation mask.
-    """
 
     # Generate random colors for each class
     classes = np.unique(mask)

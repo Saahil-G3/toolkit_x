@@ -1,3 +1,5 @@
+from abc import ABC
+
 import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
@@ -7,7 +9,7 @@ from toolkit.system.gpu.torch import GpuManager
 from toolkit.system.logging_tools import Logger
 logger = Logger(name="torchmodel").get_logger()
 
-class _BaseModel(GpuManager):
+class BaseModel(GpuManager, ABC):
     def __init__(
         self,
         gpu_id=0,
@@ -15,8 +17,7 @@ class _BaseModel(GpuManager):
         dataparallel=False,
         dataparallel_device_ids=None,
     ):
-        GpuManager.__init__(
-            self,
+        super().__init__(
             gpu_id=gpu_id,
             device_type=device_type,
             dataparallel=dataparallel,

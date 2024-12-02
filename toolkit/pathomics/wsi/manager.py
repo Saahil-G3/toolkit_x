@@ -1,17 +1,7 @@
 from pma_python import core
 
-from ._tiffslide import TiffSlideWSI
-from ._pathomation import PathomationWSI
-
-
-def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
-    sessionID = core.connect(
-        pmacoreURL=pmacoreURL,
-        pmacoreUsername=pmacoreUsername,
-        pmacorePassword=pmacorePassword,
-        verify=True,
-    )
-    return sessionID
+from .tiffslide import TiffSlideWSI
+from .pathomation import PathomationWSI
 
 
 class WSIManager:

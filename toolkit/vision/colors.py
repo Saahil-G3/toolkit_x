@@ -37,6 +37,7 @@ color_definitions = [
     {"name": "Azure", "rgb": (17, 138, 178), "hex": "#118ab2"},
 ]
 
+
 def percentage_to_hex_alpha(percentage):
     """
     Convert an opacity percentage (0-100) to a hexadecimal alpha value.
@@ -47,30 +48,27 @@ def percentage_to_hex_alpha(percentage):
     Returns:
     - str: Hexadecimal alpha value (2 digits).
     """
-    # Ensure the percentage is within the valid range
     if not 0 <= percentage <= 100:
         raise ValueError("Percentage must be between 0 and 100.")
-
-    # Calculate the corresponding alpha value in decimal (0 to 255)
     alpha_decimal = round(percentage / 100 * 255)
+    return format(alpha_decimal, "02X")
 
-    # Convert to hex and return the 2-digit string
-    return format(alpha_decimal, '02X')
 
 def plot_predefined_colors():
     fig, ax = plt.subplots(figsize=(10, 8))
     for i, color in enumerate(color_definitions):
         rgb = [x / 255 for x in color["rgb"]]  # Normalize RGB values
         ax.add_patch(plt.Rectangle((0, i), 1, 1, color=rgb))
-        ax.text(1.1, i + 0.5, f'{i}: {color["name"]}', va='center', fontsize=10)
-    
+        ax.text(1.1, i + 0.5, f'{i}: {color["name"]}', va="center", fontsize=10)
+
     # Aesthetics
     ax.set_xlim(0, 3)
     ax.set_ylim(0, len(color_definitions))
     ax.axis("off")
     plt.title("Color Definitions", fontsize=10)
-    #plt.tight_layout()
+    # plt.tight_layout()
     plt.show()
+
 
 def get_cmap(index):
     """
@@ -126,52 +124,48 @@ def get_cmap(index):
         raise ValueError("Index out of range. Please select an index between 0 and 20.")
 
 
-def get_hex_colors(n, cmap="PiYG"):
-    """
-    Generate a list of HEX color values based on the specified colormap and number of colors.
-    Args:
-    - n (int): Number of colors to generate.
-    - cmap (str): Name of the colormap to use.
-    Returns:
-    - list: List of HEX values.
-    """
-    if n <= len(color_definitions):
-        return [color_dict["hex"] for color_dict in color_definitions[:n]]
-        
-    clrs = mcp.gen_color(cmap=cmap, n=n)
-    return clrs
+def get_hex_cmap_range(n, cmap="viridis"):
+    hex_cmap_range = mcp.gen_color(cmap=cmap, n=n)
+    return hex_cmap_range
 
-def get_rgb_colors(n, cmap="PiYG"):
-    """
-    Generate a list of RGB color values based on the specified colormap and number of colors.
-    Args:
-    - n (int): Number of colors to generate.
-    - cmap (str): Name of the colormap to use.
-    Returns:
-    - list: List of RGB tuples.
-    """
+
+def get_rgb_cmap_range(n, cmap="viridis"):
+    hex_cmap_range = mcp.gen_color(cmap=cmap, n=n)
+    rgb_cmap_range = [hex_to_rgb(color) for color in cmap_range]
+    return rgb_cmap_range
+
+
+def get_hex_colors(n, cmap="Spectral"):
     if n <= len(color_definitions):
-        return [color_dict["rgb"] for color_dict in color_definitions[:n]]
-        
-    clrs = mcp.gen_color(cmap=cmap, n=n)
-    return [hex_to_rgb(clr) for clr in clrs]
+        rgb_colors = [color_dict["hex"] for color_dict in color_definitions[:n]]
+    else:
+        rgb_colors1 = [
+            color_dict["hex"]
+            for color_dict in color_definitions[: len(color_definitions)]
+        ]
+        rgb_colors2 = mcp.gen_color(cmap=cmap, n=n - len(color_definitions))
+        rgb_colors = rgb_colors1 + rgb_colors2
+
+    return rgb_colors
+
+
+def get_rgb_colors(n, cmap="Spectral"):
+    if n <= len(color_definitions):
+        rgb_colors = [color_dict["rgb"] for color_dict in color_definitions[:n]]
+    else:
+        rgb_colors1 = [
+            color_dict["rgb"]
+            for color_dict in color_definitions[: len(color_definitions)]
+        ]
+        colors2 = mcp.gen_color(cmap=cmap, n=n - len(color_definitions))
+        rgb_colors2 = [hex_to_rgb(color) for color in colors2]
+        rgb_colors = rgb_colors1 + rgb_colors2
+
+    return rgb_colors
+
 
 def hex_to_rgb(hex_color):
-    """
-    Convert a hexadecimal color string to an RGB tuple.
-
-    Args:
-    - hex_color (str): Hexadecimal color string (e.g., '#RRGGBB' or '#RRGGBBAA').
-
-    Returns:
-    - tuple: RGB values as (R, G, B).
-    """
-    # Remove the '#' if present and make sure it is a valid hex string
     hex_color = hex_color.lstrip("#")
-
-    # Ensure the string is of valid length (6 or 8 characters for RGBA)
     if len(hex_color) not in {6, 8} or not re.match(r"^[0-9a-fA-F]{6}$", hex_color):
         raise ValueError(f"Invalid hex color string: {hex_color}")
-
-    # Convert the first 6 characters to RGB (ignore alpha if present)
     return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))

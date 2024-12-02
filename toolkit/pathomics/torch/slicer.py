@@ -16,17 +16,15 @@ from toolkit.geometry.shapely_tools import (
     get_polygon_coordinates_cpu,
 )
 
-from toolkit.pathomics.slide.wsi import WSIManager
-
-current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-
-from toolkit.pathomics.slide._tiffslide import TiffSlideWSI
-from toolkit.vision.deep_learning.torchmodel import _BaseModel
+from toolkit.pathomics.wsi.manager import WSIManager
+from toolkit.pathomics.wsi.tiffslide import TiffSlideWSI
+from toolkit.vision.deep_learning.torchmodel import BaseModel
 
 from .dataset import InferenceDataset
 
+current_time = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
-class Slicer(_BaseModel):
+class Slicer(BaseModel):
     def __init__(
         self,
         gpu_id: int = 0,
@@ -34,8 +32,7 @@ class Slicer(_BaseModel):
         dataparallel: bool = False,
         dataparallel_device_ids: Optional[List[int]] = None,
     ):
-        _BaseModel.__init__(
-            self,
+        super().__init__(
             gpu_id=gpu_id,
             device_type=device_type,
             dataparallel=dataparallel,

@@ -3,6 +3,7 @@ for documentaion refer to -
 https://docs.pathomation.com/sdk/pma.python.documentation/pma_python.html
 """
 
+import pandas as pd
 from pathlib import Path
 from tqdm.auto import tqdm
 from pma_python import core
@@ -22,17 +23,34 @@ text_logger = Logger(
 ).get_logger()
 console_logger = Logger(name="pathomation").get_logger()
 
-from ._init_wsi import InitWSI
+from .base_wsi import BaseWSI
 
+def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
+    sessionID = core.connect(
+        pmacoreURL=pmacoreURL,
+        pmacoreUsername=pmacoreUsername,
+        pmacorePassword=pmacorePassword,
+        verify=True,
+    )
+    return sessionID
 
-class PathomationWSI(InitWSI):
+def get_tray(wsi_paths):
+    tray = []
+    for wsi_path in wsi_paths:
+        tray.append(
+            {"Slide Info::Server;Slide Info::File name": "PMA.core;" + wsi_path}
+        )
+    tray = pd.DataFrame(tray)
+    return tray
+
+class PathomationWSI(BaseWSI):
     def __init__(
         self,
         wsi_path: Path,
         sessionID: str = None,
         tissue_geom: Union[Polygon, MultiPolygon] = None,
     ):
-        InitWSI.__init__(self, wsi_path=wsi_path, tissue_geom=tissue_geom)
+        super().__init__(wsi_path=wsi_path, tissue_geom=tissue_geom)
 
         self.sessionID = sessionID
         self.wsi_type = "Pathomation"

@@ -5,14 +5,14 @@ from tiffslide import TiffSlide
 
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
 
-from ._init_wsi import InitWSI
+from .base_wsi import BaseWSI
 
 
-class TiffSlideWSI(InitWSI):
+class TiffSlideWSI(BaseWSI):
     def __init__(
         self, wsi_path: Path, tissue_geom: Union[Polygon, MultiPolygon] = None
     ):
-        InitWSI.__init__(self, wsi_path=wsi_path, tissue_geom=tissue_geom)
+        super().__init__(wsi_path=wsi_path, tissue_geom=tissue_geom)
 
         self.wsi_type = "TiffSlide"
         self._wsi = TiffSlide(self._wsi_path)

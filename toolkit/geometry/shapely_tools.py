@@ -1,6 +1,7 @@
+import cv2
 import torch
-import numpy as np
 import geojson
+import numpy as np
 from shapely.wkt import loads
 from shapely.geometry import mapping
 from shapely.geometry import box as Box
@@ -34,6 +35,86 @@ from shapely.prepared import prep as prep_geom_for_query
 # from shapely.strtree import STRtree
 
 
+def get_major_minor_axes(geom):
+    """
+    Calculates the major and minor axes of a geometry's minimum rotated rectangle.
+
+    This function computes the major and minor axes of the bounding box that minimally encloses the input Shapely geometry, while allowing rotation. The axes are derived from the dimensions of this rotated rectangle.
+
+    Args:
+        geom: A Shapely geometry object for which the major and minor axes are to be calculated.
+
+    Returns:
+        dict: A dictionary containing:
+            - "minor_axis": Length of the shorter side of the minimum rotated rectangle.
+            - "major_axis": Length of the longer side of the minimum rotated rectangle.
+    """
+    min_rot_rect = geom.minimum_rotated_rectangle
+    min_rot_rect_coords = list(min_rot_rect.exterior.coords)
+    x_coords = [coord[0] for coord in min_rot_rect_coords]
+    y_coords = [coord[1] for coord in min_rot_rect_coords]
+    width = max(x_coords) - min(x_coords)
+    height = max(y_coords) - min(y_coords)
+
+    major_minor_axis_dict = {}
+    major_minor_axis_dict["minor_axis"] = min(width, height)
+    major_minor_axis_dict["major_axis"] = max(width, height)
+    return major_minor_axis_dict
+
+
+def get_numpy_mask_from_geom(
+    geom,
+    mask_dims: tuple = None,
+    origin: tuple = (0, 0),
+    scale_factor: float = 1,
+):
+    """
+    Generates a numpy mask from a Shapely geometry.
+
+    This function creates a binary mask (numpy array) based on a given Shapely geometry. The geometry can consist of polygons with possible holes. If multiple geometries are detected, a warning is issued. The mask dimensions, origin, and scaling can be customized.
+
+    Args:
+        geom: A Shapely geometry object representing the shape to mask.
+        mask_dims (tuple, optional): Dimensions of the output mask as (height, width).
+            If not provided, dimensions are inferred from the bounding box of the geometry.
+        origin (tuple, optional): The (x, y) origin of the mask. Default is (0, 0).
+        scale_factor (float, optional): Scaling factor for the geometry coordinates.
+            Default is 1.
+
+    Returns:
+        numpy.ndarray: A binary mask of shape `mask_dims` where the geometry is filled with 1s
+        and holes are filled with 0s.
+
+    Raises:
+        Warning: If multiple geometries are detected in the input geometry.
+
+    """
+    if not mask_dims:
+        minx, miny, maxx, maxy = geom.bounds
+        width = int((maxx - minx))
+        height = int((maxy - miny))
+        mask_dims = (height, width)
+        origin = (minx, miny)
+
+    geom_dict = flatten_geom_collection(geom)
+    if len(geom_dict) > 1:
+        warnings.warn(
+            f"Multiple geometries detected in tissue mask. Check: {', '.join(geom_dict.keys())}"
+        )
+    exterior, holes = [], []
+    for polygon in geom_dict["Polygon"]:
+        polygon_coordinates = get_polygon_coordinates_cpu(
+            polygon, scale_factor=scale_factor, origin=origin
+        )
+        exterior.extend(polygon_coordinates[0])
+        holes.extend(polygon_coordinates[1])
+    mask = np.zeros(mask_dims, dtype=np.uint8)
+    cv2.fillPoly(mask, exterior, 1)
+    if len(holes) > 0:
+        cv2.fillPoly(mask, holes, 0)
+    return mask
+
+
 def geom_to_geojson(geom):
     """
     Converts a Shapely geometry object to a GeoJSON feature.
@@ -46,24 +127,7 @@ def geom_to_geojson(geom):
     """
     geojson_feature = geojson.Feature(geometry=mapping(geom))
     return geojson_feature
-
-
-def wkt_to_geojson(wkt_string):
-    """
-    Converts a WKT string to a GeoJSON feature.
-
-    Args:
-        wkt_string (str): A string containing a WKT representation of a geometry.
-
-    Returns:
-        geojson.Feature: A GeoJSON feature representation of the geometry.
-    """
-    poly = loads(wkt_string)
-    poly = make_valid(poly)
-    geojson_feature = geojson.Feature(geometry=mapping(poly))
-    return geojson_feature
-
-
+    
 def get_box(x, y, height, width):
     """
     Creates a rectangular bounding box geometry.
