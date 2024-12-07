@@ -9,6 +9,7 @@ from toolkit.system.logging_tools import Logger
 
 logger = Logger(name="data_io_tools", log_folder="./logs").get_logger()
 
+
 class H5:
     def __init__(self):
         pass
@@ -39,7 +40,7 @@ class H5:
 
             for class_name, wkt in data.items():
                 group.create_dataset(class_name, data=wkt)
-                
+
         logger.info(f"h5 file at '{path}' created successfully.")
 
     def load_wkt_dict(self, path):
@@ -71,7 +72,7 @@ class H5:
                     "File already exists, set overwrite=True for overwriting the file."
                 )
                 return
-                
+
         with h5py.File(path, "w") as f:
             f.create_dataset("array", data=array)
 
@@ -86,7 +87,7 @@ class H5:
             numpy.ndarray: Loaded NumPy array.
         """
         path = Path(path)
-        
+
         with h5py.File(path, "r") as f:
             data = f["predictions"][()]
 
@@ -127,11 +128,17 @@ def load_yaml(path):
         return None
 
 
-def save_pickle(data, path):
+def save_pickle(data, path, replace=False):
     path = Path(path)  # Ensure path is a Path object
-    with open(path, "wb") as file:
-        pickle.dump(data, file)
-        logger.info(f"Pickle file at '{path}' created successfully.")
+
+    if path.exists() and not replace:
+        logger.info(
+            f"Pickle alrady exists at {path}, set replace=True, for replacing the file"
+        )
+    else:
+        with open(path, "wb") as file:
+            pickle.dump(data, file)
+            logger.info(f"Pickle file at '{path}' created successfully.")
 
 
 def load_pickle(path):
