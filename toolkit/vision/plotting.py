@@ -6,7 +6,17 @@ import matplotlib.pyplot as plt
 from .colors import get_rgb_colors
 
 
-def plot_image(image, **kwargs):
+def plot_image(
+    image, 
+    plot=True,
+    alpha=150,
+    figsize=(5, 5),
+    axis="off",
+    title=None,
+    title_fontsize=14,
+    dpi=300,
+    save_path=False
+    ):
     """
     Plot an image with optional saving and display options.
 
@@ -16,15 +26,33 @@ def plot_image(image, **kwargs):
     - save_path: If specified, saves the image to the provided file path. Default is False.
     - plot: If True, displays the image. If False, the figure is closed. Default is True.
     """
-    _plot_images([image], **kwargs)
+    plt.figure(figsize=figsize)
+    plt.imshow(image)
+    plt.axis(axis)
+    if title:
+        plt.title(title, fontsize=title_fontsize)
+    if save_path:
+        plt.savefig(
+            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=dpi
+        )
+        print("Image saved")
+    if plot:
+        plt.show()
+    else:
+        plt.close()
 
-
+        
 def plot_overlay(
     image,
     mask,
     plot=True,
     alpha=150,
-    **kwargs,
+    figsize=(5, 5),
+    axis="off",
+    title=None,
+    title_fontsize=14,
+    dpi=300,
+    save_path=False,
 ):
     """
     Overlay an image with a mask using a random color scheme.
@@ -35,8 +63,22 @@ def plot_overlay(
     Returns:
     - numpy.ndarray: Overlayed image with alpha channel.
     """
-    images = [image, get_overlay(image, mask, alpha=alpha)]
-    _plot_images(images, **kwargs)
+    plt.figure(figsize=figsize)
+    plt.imshow(image)
+    plt.imshow(get_overlay(image, mask, alpha=alpha))
+    plt.axis(axis)
+    if title:
+        plt.title(title, fontsize=title_fontsize)
+    if save_path:
+        plt.savefig(
+            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=dpi
+        )
+        print("Image saved")
+    if plot:
+        plt.show()
+    else:
+        plt.close()
+
 
 
 def plot_image_series(images, title=None, save_path=False, figsize=(15, 5), plot=True):
@@ -145,53 +187,3 @@ def get_overlay(image, mask, alpha=200):
     overlayed_image = cv2.merge((*cv2.split(overlayed_image), alpha_channel))
 
     return overlayed_image
-
-
-def _plot_images(
-    images,
-    figsize=(5, 5),
-    axis="off",
-    title=None,
-    title_fontsize=14,
-    plot=True,
-    dpi=300,
-    save_path=False,
-):
-    """
-    Plot one or more images with optional titles and save functionality.
-
-    This function displays one or more images in a single figure, with options to adjust the figure size,
-    axis visibility, and add a title. It also allows saving the figure to a specified path.
-
-    Args:
-    - images (list of numpy.ndarray): List of images to plot. Each image should be a 2D or 3D array.
-    - figsize (tuple, optional): Tuple specifying the figure size as (width, height) in inches. Default is (5, 5).
-    - axis (str, optional): Specifies whether to display axes. Use "on" to show axes or "off" to hide them. Default is "off".
-    - title (str, optional): Title to display above the images. If None, no title is added. Default is None.
-    - title_fontsize (int, optional): Font size for the title. Default is 14.
-    - plot (bool, optional): Whether to display the figure. If False, the figure is closed after saving. Default is True.
-    - dpi (int, optional): Resolution of the saved figure in dots per inch. Default is 300.
-    - save_path (str or bool, optional): File path to save the figure. If False, the figure is not saved. Default is False.
-
-    Returns:
-    - None
-    """
-
-    plt.figure(figsize=figsize)
-    for image in images:
-        plt.imshow(image)
-
-    plt.axis(axis)
-    if title:
-        plt.title(title, fontsize=title_fontsize)
-
-    if save_path:
-        plt.savefig(
-            save_path, bbox_inches="tight", pad_inches=0, transparent=True, dpi=dpi
-        )
-        print("Image saved")
-
-    if plot:
-        plt.show()
-    else:
-        plt.close()

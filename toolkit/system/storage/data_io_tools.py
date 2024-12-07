@@ -39,6 +39,8 @@ class H5:
 
             for class_name, wkt in data.items():
                 group.create_dataset(class_name, data=wkt)
+                
+        logger.info(f"h5 file at '{path}' created successfully.")
 
     def load_wkt_dict(self, path):
         path = Path(path)  # Ensure path is a Path object
@@ -106,6 +108,7 @@ def save_yaml(data, path):
     try:
         with open(path, "w") as file:
             yaml.dump(data, file, default_flow_style=False)
+            logger.info(f"YAML file at '{path}' created successfully.")
     except Exception as e:
         logger.info(f"An error occurred while saving to YAML: {e}")
 
@@ -128,7 +131,7 @@ def save_pickle(data, path):
     path = Path(path)  # Ensure path is a Path object
     with open(path, "wb") as file:
         pickle.dump(data, file)
-        logger.info("File Saved")
+        logger.info(f"Pickle file at '{path}' created successfully.")
 
 
 def load_pickle(path):
@@ -149,7 +152,7 @@ def save_geojson(data, path):
     path = Path(path)  # Ensure path is a Path object
     with open(path, "w") as output_file:
         geojson.dump(data, output_file)
-    logger.info(f"GeoJSON file '{path}' created successfully.")
+    logger.info(f"GeoJSON file at '{path}' created successfully.")
 
 
 def load_geojson(path):
