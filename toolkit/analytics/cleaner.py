@@ -87,7 +87,7 @@ class Cleaner:
 
     def _initialize_cleaner_paths(self):
 
-        self._dirs["cleaner_results"] = Path(f"analytics/{self.run_id}/cleaner")
+        self._dirs["cleaner_results"] = Path(f"analytics/cleaner/{self.run_id}")
         self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
         self._dirs["df"] = self._dirs["cleaner_results"] / self.df_name
