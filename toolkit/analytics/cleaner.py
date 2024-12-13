@@ -24,29 +24,56 @@ def get_datetime_run_id():
 
 
 class Cleaner:
-    def __init__(self):
+    def __init__(self, run_id=None):
+        
+        if run_id is None:
+            self._run_id = get_datetime_run_id()
+        else:
+            self._run_id = run_id
 
         self._paths = {}
         self._dirs = {}
 
-        self.identifiers = []  # For containing identifiers
-
-    def configure_run(self, input_df, run_id=None, df_name=None):
-
-        self.input_df = copy.deepcopy(input_df)
-
-        if run_id is None:
-            self.run_id = get_datetime_run_id()
+    def configure_cleaner_run(self, branch_name=None, input_df=None, df_name=None):
+        
+        if branch_name is not None:
+            self.run_id = f"{self._run_id}/{branch_name}"
         else:
-            self.run_id = run_id
+            self.run_id = self._run_id
+            
+        if df_name is not None:
+            self.df_name = df_name
+        else:
+            self.df_name = "df_name_placeholder"
 
-        self.df_name = df_name
+        self._initialize_cleaner_paths()
+        self._set_df(input_df=input_df)
+        logger.info(f"Configured df: {df_name} with branch_name: {branch_name}.")
+        
+        
+    def _set_df(self, input_df):
+        if input_df is None:
+            if self._paths["df_clean"].exists():
+                self.df = pd.read_csv(self._paths["df_clean"])
+                logger.info(
+                    f"clean DataFrame Exists at {self._paths['df_clean']}, No Need for processing."
+                )
 
-    def create_column_report(self):
-        self._initialize_paths()
+            elif self._paths["df"].exists():
+                self.df = pd.read_csv(self._paths["df"])
+                logger.info(
+                    f"DataFrame saved before with identical configuration at {self._dirs['df']}."
+                )
+            else:
+                raise ValueError(f"No df_clean or df found for a previous run, pass input_df explicitly.")
+        else:
+            self.df = copy.deepcopy(input_df)
+            self.df.to_csv(self._paths["df"], index=False)
+
+    def create_col_report(self):
         self._set_df()
 
-        self._sort_columns()
+        self._sort_cols()
         overview_sheet = self._get_overview_sheet()
         num_sheet, num_edit_sheet = self._get_num_sheet()
         cat_sheet, cat_edit_sheet = self._get_cat_sheet()
@@ -58,67 +85,45 @@ class Cleaner:
             cat_sheet.to_excel(writer, sheet_name="cat_stats", index=False)
             cat_edit_sheet.to_excel(writer, sheet_name="cat_todo", index=False)
 
-    def _initialize_paths(self):
+    def _initialize_cleaner_paths(self):
 
-        self._dirs["results"] = Path(f"analytics/{self.run_id}/cleaner")
-        self._dirs["results"].mkdir(exist_ok=True, parents=True)
+        self._dirs["cleaner_results"] = Path(f"analytics/{self.run_id}/cleaner")
+        self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
-        if self.df_name is not None:
-            self._dirs["df"] = self._dirs["results"] / self.df_name
-            self._dirs["df"].mkdir(exist_ok=True, parents=True)
-        else:
-            self._dirs["df"] = self.results_dir
+        self._dirs["df"] = self._dirs["cleaner_results"] / self.df_name
+        self._dirs["df"].mkdir(exist_ok=True, parents=True)
 
         self._paths["df"] = Path(f"{self._dirs['df']}/df.csv")
-        self._paths["clean_df"] = self._dirs["df"] / "df_clean.csv"
+        self._paths["df_clean"] = self._dirs["df"] / "df_clean.csv"
         # self._paths["metadata"] = self._dirs["df"] / "metadata.pkl"
 
-        self._paths["col_report"] = self._dirs["df"] / "column_report.xlsx"
+        self._paths["col_report"] = self._dirs["df"] / f"col_report_{self.df_name}.xlsx"
         self._paths["col_report_for_changes"] = (
-            self._dirs["df"] / "column_report_for_changes.xlsx"
+            self._dirs["df"] / f"col_report_for_changes_{self.df_name}.xlsx"
         )
-        self._paths["col_report_cleaned"] = self._dirs["df"] / "col_report_cleaned.xlsx"
+        self._paths["col_report_clean"] = (
+            self._dirs["df"] / f"col_report_clean_{self.df_name}.xlsx"
+        )
 
-        # self._dirs["col_reports"] = self._dirs["df"] / "col_reports"
-        # self._dirs["col_reports"].mkdir(exist_ok=True, parents=True)
-
-        # self._dirs["clean_col_reports"] = self._dirs["df"] / "col_reports_clean"
-        # self._dirs["clean_col_reports"].mkdir(exist_ok=True, parents=True)
-
-        # self._paths["num_col_names"] = (self._dirs["col_reports"] / "col_names_num.pkl")
-        # self._paths["cat_col_names"] = (self._dirs["col_reports"] / "col_names_cat.pkl")
-        # self._paths["clean_cat_cols_report"] = (self._dirs["clean_col_reports"] / "col_report_cat.xlsx")
-        # self._paths["clean_num_cols_report"] = (self._dirs["clean_col_reports"] / "col_report_num.csv")
-        # self._paths["clean_num_col_names"] = (self._dirs["clean_col_reports"] / "col_names_num.pkl")
-        # self._paths["clean_cat_col_names"] = (self._dirs["clean_col_reports"] / "col_names_cat.pkl")
-        # self._paths["identifiers"] = (self._dirs["clean_col_reports"] / "identifiers.pkl")
-
-    def _set_df(self):
-
-        if self._paths["clean_df"].exists():
-            self.df = pd.read_csv(self._paths["clean_df"])
-            logger.info(
-                f"clean DataFrame Exists at {self._paths['clean_df']}, No Need for processing."
+        #Summarizer Paths
+        self._dirs["summarizer_results"] = Path(
+                f"analytics/summarizer/{self.run_id}/{self.df_name}"
             )
+        self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)
 
-        elif self._paths["df"].exists():
-            self.df = pd.read_csv(self._paths["df"])
-            logger.info(
-                f"DataFrame saved before with identical configuration at {self._dirs['df']}."
-            )
+        self._paths["missing_value_report"] = (
+            self._dirs["summarizer_results"] / "missing_value_report.xlsx"
+        )
 
-        else:
-            self.df = self.input_df
-            self.df.to_csv(self._paths["df"], index=False)
+        self._paths["excel_summary_report"] = (
+            self._dirs["summarizer_results"] / "summary_report.xlsx"
+        )
 
-    # def _load_metadata(self):
-    #     if self._paths["metadata"].exists():
-    #         logger.info("Metadata exists")
-    #         self._metadata = load_pickle(self._metadata_path)
-    #     else:
-    #         self._metadata = {}
+        self._paths["normality_report"] = (
+            self._dirs["summarizer_results"] / "normality_report.csv"
+        )
 
-    def _sort_columns(self):
+    def _sort_cols(self):
         self._all_col_names = self.df.columns.tolist()
         self.sorted_col_names = {}
         self.sorted_col_names["num"] = self.df.select_dtypes(
@@ -155,21 +160,21 @@ class Cleaner:
         overview_sheet = pd.DataFrame(overview_sheet)
 
         for col_type, col_names in self.sorted_col_names.items():
-            overview_sheet, col_names = self._insert_column_in_df(
+            overview_sheet, col_names = self._insert_col_in_df(
                 overview_sheet, col_names
             )
             overview_sheet[f"{col_type}_col_names"] = col_names
 
         identifier_cols = []
-        overview_sheet, identifier_cols = self._insert_column_in_df(
+        overview_sheet, identifier_cols = self._insert_col_in_df(
             overview_sheet, identifier_cols
         )
-        overview_sheet["identifier_columns"] = identifier_cols
+        overview_sheet["identifier_cols"] = identifier_cols
 
-        overview_sheet, all_columns = self._insert_column_in_df(
+        overview_sheet, all_cols = self._insert_col_in_df(
             overview_sheet, self._all_col_names
         )
-        overview_sheet["all_columns"] = all_columns
+        overview_sheet["all_cols"] = all_cols
 
         return overview_sheet
 
@@ -217,17 +222,17 @@ class Cleaner:
             categories = value_counts.keys().to_list()
             counts = value_counts.values.tolist()
 
-            cat_sheet, categories = self._insert_column_in_df(cat_sheet, categories)
+            cat_sheet, categories = self._insert_col_in_df(cat_sheet, categories)
             cat_sheet[cat_col_name] = categories
 
             if len(categories) == len(counts):
                 cat_sheet[f"(Counts) {cat_col_name}"] = counts
             else:
-                cat_sheet, counts = self._insert_column_in_df(cat_sheet, counts)
+                cat_sheet, counts = self._insert_col_in_df(cat_sheet, counts)
                 cat_sheet[f"(Counts) {cat_col_name}"] = counts
 
-            cat_sheet, empty_column = self._insert_column_in_df(cat_sheet, [pd.NA])
-            cat_sheet[f"(RenameDict) {cat_col_name}"] = empty_column
+            cat_sheet, empty_col = self._insert_col_in_df(cat_sheet, [pd.NA])
+            cat_sheet[f"(RenameDict) {cat_col_name}"] = empty_col
 
         cat_edit_sheet = []
         for num_col_name in cat_col_names:
@@ -252,7 +257,7 @@ class Cleaner:
             )
         else:
             raise ValueError(
-                f"No col_report_for_changes found at path {col_report_for_changes}"
+                f"No col_report_for_changes found at path {self._paths['col_report_for_changes']}"
             )
 
         self._overview = self._col_report_for_changes.parse("overview", index_col=None)
@@ -271,6 +276,7 @@ class Cleaner:
             "cat_stats", index_col=None
         )
 
+        self.identifiers = []
         self._remove_cols = []  # At the dataframe level
         self._rename_cols = {}  # At the dataframe level
         self._rename_labels = {}
@@ -289,25 +295,33 @@ class Cleaner:
                     f"{col_name} will be completely removed from further analysis."
                 )
                 self.cat_col_names.remove(col_name)
-                # self.df = self.df.drop(columns=[col_name])
                 continue
 
             if rename_to:
-                self._rename_cols[col_name] = rename_to
-                logger.info(f"{col_name}  renamed to {rename_to}.")
-                col_name = rename_to
+                self.df = self.df.rename(columns={col_name: rename_to})
 
-                # self.df = self.df.rename(columns={col_name: rename_to})
+                self._cat_stats = self._cat_stats.rename(
+                    columns={
+                        col_name: rename_to,
+                        f"(Counts) {col_name}": f"(Counts) {rename_to}",
+                        f"(RenameDict) {col_name}": f"(RenameDict) {rename_to}",
+                    }
+                )
+                self.cat_col_names.remove(col_name)
+                self.cat_col_names.append(rename_to)
+                col_name = rename_to
+                logger.info(f"{col_name} renamed to {rename_to}.")
 
             if add_to_identifiers:
                 self.identifiers.append(col_name)
-                self.num_col_names.remove(col_name)
-                logger.info(f"{col_name}  added to identifiers.")
+                self.cat_col_names.remove(col_name)
+                logger.info(f"{col_name} will be added to identifiers.")
+
             elif add_to_numerical:
                 self.num_col_names.append(col_name)
                 self.cat_col_names.remove(col_name)
                 logger.info(
-                    f"Category changed from categorical to numerical for {col_name}"
+                    f"Category will be changed from categorical to numerical for {col_name}"
                 )
 
     def _clean_numerical_cols(self):
@@ -327,19 +341,23 @@ class Cleaner:
                 continue
 
             if rename_to:
-                self._rename_cols[col_name] = rename_to
-                logger.info(f"{col_name}  renamed to {rename_to}.")
+                self.df = self.df.rename(columns={col_name: rename_to})
+                self.num_col_names.remove(col_name)
+                self.num_col_names.append(rename_to)
+
                 col_name = rename_to
+                logger.info(f"{col_name} renamed to {rename_to}.")
 
             if add_to_identifiers:
                 self.identifiers.append(col_name)
                 self.num_col_names.remove(col_name)
-                logger.info(f"{col_name}  added to identifiers.")
+                logger.info(f"{col_name} will be added to identifiers.")
+
             elif add_to_categorical:
                 self.cat_col_names.append(col_name)
                 self.num_col_names.remove(col_name)
                 logger.info(
-                    f"Category changed from numerical to categorical for {col_name}"
+                    f"Category will be changed from numerical to categorical for {col_name}"
                 )
 
     def _prepare_label_rename_dicts(self):
@@ -374,8 +392,8 @@ class Cleaner:
         if self._remove_cols:
             self.df = self.df.drop(columns=self._remove_cols)
 
-        if self._rename_cols:
-            self.df = self.df.rename(columns=self._rename_cols)
+        # if self._rename_cols:
+        #    self.df = self.df.rename(columns=self._rename_cols)
 
     def clean(self):
 
@@ -385,46 +403,46 @@ class Cleaner:
         self._prepare_label_rename_dicts()
         self._commit_changes()
 
-        columns_accounted_for = (
+        cols_accounted_for = (
             len(self.cat_col_names) + len(self.num_col_names) + len(self.identifiers)
         )
-        total_columns = self.df.shape[1]
+        total_cols = self.df.shape[1]
         assert (
-            columns_accounted_for == total_columns
-        ), f"{total_columns-columns_accounted_for}  unaccounted columns exists in df."
+            cols_accounted_for == total_cols
+        ), f"{total_cols-cols_accounted_for}  unaccounted cols exists in df."
 
         self._create_clean_df()
         self._create_clean_col_report()
 
     def _create_clean_col_report(self):
-        cleaned_overview_sheet = self._get_cleaned_overview_sheet()
+        clean_overview_sheet = self._get_clean_overview_sheet()
 
-        with pd.ExcelWriter(self._paths["col_report_cleaned"]) as writer:
-            cleaned_overview_sheet.to_excel(writer, sheet_name="overview", index=False)
+        with pd.ExcelWriter(self._paths["col_report_clean"]) as writer:
+            clean_overview_sheet.to_excel(writer, sheet_name="overview", index=False)
 
     def _create_clean_df(self):
-        self.df.to_csv(self._paths["clean_df"], index=False)
+        self.df.to_csv(self._paths["df_clean"], index=False)
 
-    def _get_cleaned_overview_sheet(self):
+    def _get_clean_overview_sheet(self):
 
-        cleaned_overview_sheet = pd.DataFrame()
-        cleaned_overview_sheet["identifiers"] = self.identifiers
-        cleaned_overview_sheet, self.cat_col_names = self._insert_column_in_df(
-            cleaned_overview_sheet, self.cat_col_names
+        clean_overview_sheet = pd.DataFrame()
+        clean_overview_sheet["identifiers"] = self.identifiers
+        clean_overview_sheet, self.cat_col_names = self._insert_col_in_df(
+            clean_overview_sheet, self.cat_col_names
         )
-        cleaned_overview_sheet["cat_col_names"] = self.cat_col_names
-        cleaned_overview_sheet, self.num_col_names = self._insert_column_in_df(
-            cleaned_overview_sheet, self.num_col_names
+        clean_overview_sheet["cat_col_names"] = self.cat_col_names
+        clean_overview_sheet, self.num_col_names = self._insert_col_in_df(
+            clean_overview_sheet, self.num_col_names
         )
-        cleaned_overview_sheet["num_col_names"] = self.num_col_names
+        clean_overview_sheet["num_col_names"] = self.num_col_names
 
-        return cleaned_overview_sheet
+        return clean_overview_sheet
 
     @staticmethod
-    def _insert_column_in_df(df, column):
-        if len(column) > len(df):
-            df = df.reindex(range(len(column)))
-            return df, column
+    def _insert_col_in_df(df, col):
+        if len(col) > len(df):
+            df = df.reindex(range(len(col)))
+            return df, col
         else:
-            padded_data = column + [pd.NA] * (len(df) - len(column))
+            padded_data = col + [pd.NA] * (len(df) - len(col))
             return df, padded_data
