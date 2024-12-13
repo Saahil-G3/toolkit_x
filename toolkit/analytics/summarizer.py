@@ -9,9 +9,9 @@ class Summarizer(Cleaner):
     def __init__(self, run_id=None):
         super().__init__(run_id=run_id)
 
-    def configure_summarizer_run(self, branch_name=None, input_df=None, df_name=None):
+    def configure_summarizer_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
         
-        self.configure_cleaner_run(branch_name=branch_name, input_df=input_df, df_name=df_name)
+        self.configure_cleaner_run(branch_name=branch_name, input_df=input_df, df_name=df_name, make_df_dir=make_df_dir)
 
         self._col_report = pd.ExcelFile(self._paths["col_report_clean"])
         self._overview = self._col_report.parse("overview", index_col=None)
@@ -29,14 +29,18 @@ class Summarizer(Cleaner):
 
         self.identifiers = self._overview["identifiers"].dropna().to_list()
         
-        self._initialize_summarizer_paths()
+        self._initialize_summarizer_paths(make_df_dir=make_df_dir)
 
 
-    def _initialize_summarizer_paths(self):
+    def _initialize_summarizer_paths(self, make_df_dir=True):
+
+        
         self._dirs["summarizer_results"] = Path(
             f"analytics/summarizer/{self.run_id}/{self.df_name}"
         )
-        self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)
+
+        if make_df_dir:
+            self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)
 
         self._paths["missing_value_report"] = (
             self._dirs["summarizer_results"] / "missing_value_report.xlsx"

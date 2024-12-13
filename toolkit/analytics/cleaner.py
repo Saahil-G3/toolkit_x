@@ -34,7 +34,7 @@ class Cleaner:
         self._paths = {}
         self._dirs = {}
 
-    def configure_cleaner_run(self, branch_name=None, input_df=None, df_name=None):
+    def configure_cleaner_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
         
         if branch_name is not None:
             self.run_id = f"{self._run_id}/{branch_name}"
@@ -46,7 +46,7 @@ class Cleaner:
         else:
             self.df_name = "df_name_placeholder"
 
-        self._initialize_cleaner_paths()
+        self._initialize_cleaner_paths(make_df_dir=make_df_dir)
         self._set_df(input_df=input_df)
         logger.info(f"Configured df: {df_name} with branch_name: {branch_name}.")
         
@@ -85,17 +85,18 @@ class Cleaner:
             cat_sheet.to_excel(writer, sheet_name="cat_stats", index=False)
             cat_edit_sheet.to_excel(writer, sheet_name="cat_todo", index=False)
 
-    def _initialize_cleaner_paths(self):
+    def _initialize_cleaner_paths(self, make_df_dir=True):
 
         self._dirs["cleaner_results"] = Path(f"analytics/cleaner/{self.run_id}")
         self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
         self._dirs["df"] = self._dirs["cleaner_results"] / self.df_name
-        self._dirs["df"].mkdir(exist_ok=True, parents=True)
+        
+        if make_df_dir:
+            self._dirs["df"].mkdir(exist_ok=True, parents=True)
 
         self._paths["df"] = Path(f"{self._dirs['df']}/df.csv")
         self._paths["df_clean"] = self._dirs["df"] / "df_clean.csv"
-        # self._paths["metadata"] = self._dirs["df"] / "metadata.pkl"
 
         self._paths["col_report"] = self._dirs["df"] / f"col_report_{self.df_name}.xlsx"
         self._paths["col_report_for_changes"] = (
@@ -103,24 +104,6 @@ class Cleaner:
         )
         self._paths["col_report_clean"] = (
             self._dirs["df"] / f"col_report_clean_{self.df_name}.xlsx"
-        )
-
-        #Summarizer Paths
-        self._dirs["summarizer_results"] = Path(
-                f"analytics/summarizer/{self.run_id}/{self.df_name}"
-            )
-        self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)
-
-        self._paths["missing_value_report"] = (
-            self._dirs["summarizer_results"] / "missing_value_report.xlsx"
-        )
-
-        self._paths["excel_summary_report"] = (
-            self._dirs["summarizer_results"] / "summary_report.xlsx"
-        )
-
-        self._paths["normality_report"] = (
-            self._dirs["summarizer_results"] / "normality_report.csv"
         )
 
     def _sort_cols(self):
