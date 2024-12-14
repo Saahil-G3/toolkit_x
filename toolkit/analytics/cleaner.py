@@ -53,7 +53,7 @@ class Cleaner:
         logger.info(f"Configured df: {df_name} with branch_name: {branch_name}.")
         
         
-    def _set_df(self, input_df):
+    def _set_df(self, input_df=None):
         if input_df is None:
             if self._paths["df_clean"].exists():
                 self.df = pd.read_csv(self._paths["df_clean"])
@@ -63,18 +63,15 @@ class Cleaner:
 
             elif self._paths["df"].exists():
                 self.df = pd.read_csv(self._paths["df"])
-                logger.info(
-                    f"DataFrame saved before with identical configuration at {self._dirs['df']}."
-                )
+                
             else:
                 raise ValueError(f"No df_clean or df found for a previous run, pass input_df explicitly.")
         else:
             self.df = copy.deepcopy(input_df)
             self.df.to_csv(self._paths["df"], index=False)
 
-    def create_col_report(self):
-        self._set_df()
-
+    def create_col_report(self, input_df=None):
+        self._set_df(input_df=input_df)
         self._sort_cols()
         overview_sheet = self._get_overview_sheet()
         num_sheet, num_edit_sheet = self._get_num_sheet()
