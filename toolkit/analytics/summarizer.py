@@ -8,6 +8,7 @@ from .normality import Normality
 class Summarizer(Cleaner):
     def __init__(self, run_id=None):
         super().__init__(run_id=run_id)
+        self._dirs["summarizer_root"] = Path(f"analytics/summarizer")
 
     def configure_summarizer_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
         
@@ -33,11 +34,8 @@ class Summarizer(Cleaner):
 
 
     def _initialize_summarizer_paths(self, make_df_dir=True):
-
         
-        self._dirs["summarizer_results"] = Path(
-            f"analytics/summarizer/{self.run_id}/{self.df_name}"
-        )
+        self._dirs["summarizer_results"] = self._dirs["summarizer_root"]/f"{self.run_id}"/f"{self.df_name}"
 
         if make_df_dir:
             self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)

@@ -33,6 +33,8 @@ class Cleaner:
 
         self._paths = {}
         self._dirs = {}
+        
+        self._dirs["cleaner_root"] = Path(f"analytics/cleaner")
 
     def configure_cleaner_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
         
@@ -85,9 +87,10 @@ class Cleaner:
             cat_sheet.to_excel(writer, sheet_name="cat_stats", index=False)
             cat_edit_sheet.to_excel(writer, sheet_name="cat_todo", index=False)
 
-    def _initialize_cleaner_paths(self, make_df_dir=True):
-
-        self._dirs["cleaner_results"] = Path(f"analytics/cleaner/{self.run_id}")
+    def _initialize_cleaner_paths(self, make_df_dir=True):        
+              
+        self._dirs["cleaner_results"] = self._dirs["cleaner_root"]/f"{self.run_id}"
+        
         self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
         self._dirs["df"] = self._dirs["cleaner_results"] / self.df_name
