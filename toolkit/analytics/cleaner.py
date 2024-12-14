@@ -53,25 +53,25 @@ class Cleaner:
         logger.info(f"Configured df: {df_name} with branch_name: {branch_name}.")
         
         
-    def _set_df(self, input_df=None):
-        if input_df is None:
-            if self._paths["df_clean"].exists():
-                self.df = pd.read_csv(self._paths["df_clean"])
-                logger.info(
-                    f"clean DataFrame Exists at {self._paths['df_clean']}, No Need for processing."
-                )
+    def _set_df(self, input_df):
 
-            elif self._paths["df"].exists():
-                self.df = pd.read_csv(self._paths["df"])
-                
-            else:
-                raise ValueError(f"No df_clean or df found for a previous run, pass input_df explicitly.")
+        if self._paths["df_clean"].exists():
+            self.df = pd.read_csv(self._paths["df_clean"])
+            logger.info(
+                f"clean DataFrame Exists at {self._paths['df_clean']}, No Need for processing."
+            )
+
+        elif self._paths["df"].exists():
+            self.df = pd.read_csv(self._paths["df"])
+            logger.info(
+                f"DataFrame saved before with identical configuration at {self._dirs['df']}."
+            )
         else:
             self.df = copy.deepcopy(input_df)
             self.df.to_csv(self._paths["df"], index=False)
 
-    def create_col_report(self, input_df=None):
-        self._set_df(input_df=input_df)
+    def create_col_report(self):
+        
         self._sort_cols()
         overview_sheet = self._get_overview_sheet()
         num_sheet, num_edit_sheet = self._get_num_sheet()
@@ -83,7 +83,25 @@ class Cleaner:
             num_edit_sheet.to_excel(writer, sheet_name="num_todo", index=False)
             cat_sheet.to_excel(writer, sheet_name="cat_stats", index=False)
             cat_edit_sheet.to_excel(writer, sheet_name="cat_todo", index=False)
+            
+        logger.info(f"Column report created at {self._paths["col_report"]}")
 
+    def _sort_cols(self):
+        self._all_col_names = self.df.columns.tolist()
+        self.sorted_col_names = {}
+        self.sorted_col_names["num"] = self.df.select_dtypes(
+            include=["number"]
+        ).columns.tolist()
+        self.sorted_col_names["cat"] = self.df.select_dtypes(
+            include=["object", "category"]
+        ).columns.tolist()
+        self.sorted_col_names["datetime"] = self.df.select_dtypes(
+            include=["datetime"]
+        ).columns.tolist()
+        self.sorted_col_names["other"] = self.df.select_dtypes(
+            exclude=["number", "object", "category", "datetime"]
+        ).columns.tolist()
+        
     def _initialize_cleaner_paths(self, make_df_dir=True):        
               
         self._dirs["cleaner_results"] = self._dirs["cleaner_root"]/f"{self.run_id}"
@@ -106,21 +124,7 @@ class Cleaner:
             self._dirs["df"] / f"col_report_clean_{self.df_name}.xlsx"
         )
 
-    def _sort_cols(self):
-        self._all_col_names = self.df.columns.tolist()
-        self.sorted_col_names = {}
-        self.sorted_col_names["num"] = self.df.select_dtypes(
-            include=["number"]
-        ).columns.tolist()
-        self.sorted_col_names["cat"] = self.df.select_dtypes(
-            include=["object", "category"]
-        ).columns.tolist()
-        self.sorted_col_names["datetime"] = self.df.select_dtypes(
-            include=["datetime"]
-        ).columns.tolist()
-        self.sorted_col_names["other"] = self.df.select_dtypes(
-            exclude=["number", "object", "category", "datetime"]
-        ).columns.tolist()
+
 
     def _get_overview_sheet(self):
         overview_sheet = []
