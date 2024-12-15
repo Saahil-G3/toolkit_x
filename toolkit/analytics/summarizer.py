@@ -10,9 +10,11 @@ class Summarizer(Cleaner):
         super().__init__(run_id=run_id)
         self._dirs["summarizer_root"] = Path(f"analytics/summarizer")
 
-    def configure_summarizer_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
+
+    def configure_summarizer_run(self, branch_name=None, df_name=None, make_df_dir=True):
         
-        self.configure_cleaner_run(branch_name=branch_name, input_df=input_df, df_name=df_name, make_df_dir=make_df_dir)
+        self._set_common_configuration(branch_name=branch_name, df_name=df_name, make_df_dir=make_df_dir)
+        self._set_common_df()
 
         self._col_report = pd.ExcelFile(self._paths["col_report_clean"])
         self._overview = self._col_report.parse("overview", index_col=None)
@@ -35,21 +37,27 @@ class Summarizer(Cleaner):
 
     def _initialize_summarizer_paths(self, make_df_dir=True):
         
-        self._dirs["summarizer_results"] = self._dirs["summarizer_root"]/f"{self.run_id}"/f"{self.df_name}"
+        self._dirs["summarizer_results"] = self._dirs["summarizer_root"]/f"{self.run_id}"
+        self._dirs["missing_value_report"] = self._dirs["summarizer_results"]/f"missing_value_report"
+        self._dirs["summary_report"] = self._dirs["summarizer_results"]/f"summary_report"
+        self._dirs["normality_report"] = self._dirs["summarizer_results"]/f"normality_report"
 
         if make_df_dir:
             self._dirs["summarizer_results"].mkdir(exist_ok=True, parents=True)
+            self._dirs["missing_value_report"].mkdir(exist_ok=True, parents=True)
+            self._dirs["summary_report"].mkdir(exist_ok=True, parents=True)
+            self._dirs["normality_report"].mkdir(exist_ok=True, parents=True)
 
         self._paths["missing_value_report"] = (
-            self._dirs["summarizer_results"] / "missing_value_report.xlsx"
+            self._dirs["missing_value_report"] / f"missing_value_report_{self.df_name}.xlsx"
         )
 
         self._paths["excel_summary_report"] = (
-            self._dirs["summarizer_results"] / "summary_report.xlsx"
+            self._dirs["summary_report"] / f"summary_report_{self.df_name}.xlsx"
         )
 
         self._paths["normality_report"] = (
-            self._dirs["summarizer_results"] / "normality_report.csv"
+            self._dirs["normality_report"] / f"normality_report_{self.df_name}.csv"
         )
 
     def create_missing_report(self):

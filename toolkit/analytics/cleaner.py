@@ -35,9 +35,8 @@ class Cleaner:
         self._dirs = {}
         
         self._dirs["cleaner_root"] = Path(f"analytics/cleaner")
-
-    def configure_cleaner_run(self, branch_name=None, input_df=None, df_name=None, make_df_dir=True):
-        
+    
+    def _set_common_configuration(self, branch_name, df_name, make_df_dir):
         if branch_name is not None:
             self.run_id = f"{self._run_id}/{branch_name}"
         else:
@@ -49,11 +48,21 @@ class Cleaner:
             self.df_name = "df_name_placeholder"
 
         self._initialize_cleaner_paths(make_df_dir=make_df_dir)
-        self._set_df(input_df=input_df)
-        logger.info(f"Configured df: {df_name} with branch_name: {branch_name}.")
+
+    def configure_cleaner_run(
+        self, 
+        branch_name=None, 
+        input_df=None, 
+        df_name=None, 
+        make_df_dir=False
+    ):
+        self._set_common_configuration(branch_name=branch_name, df_name=df_name, make_df_dir=make_df_dir)
+
+        self._set_df_for_cleaner(input_df=input_df)
+        logger.info(f"Configured df: {df_name} with branch_name: {branch_name} for cleaner.")
         
         
-    def _set_df(self, input_df):
+    def _set_df_for_cleaner(self, input_df):
 
         if self._paths["df_clean"].exists():
             self.df = pd.read_csv(self._paths["df_clean"])
@@ -69,6 +78,17 @@ class Cleaner:
         else:
             self.df = copy.deepcopy(input_df)
             self.df.to_csv(self._paths["df"], index=False)
+    
+    def _set_common_df(self):
+
+        if self._paths["df_clean"].exists():
+            self.df = pd.read_csv(self._paths["df_clean"])
+            logger.info(
+                f"clean DataFrame Exists at {self._paths['df_clean']}, No Need for processing."
+            )
+
+        else:
+            raise ValueError(f"No clean df found, run cleaner before anything else.")
 
     def create_col_report(self):
         
@@ -102,29 +122,39 @@ class Cleaner:
             exclude=["number", "object", "category", "datetime"]
         ).columns.tolist()
         
-    def _initialize_cleaner_paths(self, make_df_dir=True):        
+    def _initialize_cleaner_paths(self, make_df_dir):        
               
         self._dirs["cleaner_results"] = self._dirs["cleaner_root"]/f"{self.run_id}"
-        
         self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["df"] = self._dirs["cleaner_results"] / self.df_name
+        self._dirs["df"] = self._dirs["cleaner_results"]/f"df"
+        self._dirs["df"].mkdir(exist_ok=True, parents=True)
+
+        self._dirs["col_report"] = self._dirs["cleaner_results"]/f"col_report"
+        self._dirs["col_report"].mkdir(exist_ok=True, parents=True)
+
+        self._dirs["col_report_for_changes"] = self._dirs["cleaner_results"]/f"col_report_for_changes"
+        self._dirs["col_report_for_changes"].mkdir(exist_ok=True, parents=True)
+
+        self._dirs["df_clean"] = self._dirs["cleaner_results"]/f"df_clean"
+        self._dirs["df_clean"].mkdir(exist_ok=True, parents=True)
+
+        self._dirs["col_report_clean"] = self._dirs["cleaner_results"]/f"col_report_clean"
+        self._dirs["col_report_clean"].mkdir(exist_ok=True, parents=True)     
+
+        self._paths["df"] = self._dirs['df'] / f"df_{self.df_name}.csv"
         
-        if make_df_dir:
-            self._dirs["df"].mkdir(exist_ok=True, parents=True)
+        self._paths["df_clean"] = self._dirs["df_clean"] / f"df_{self.df_name}.csv"
 
-        self._paths["df"] = Path(f"{self._dirs['df']}/df.csv")
-        self._paths["df_clean"] = self._dirs["df"] / "df_clean.csv"
-
-        self._paths["col_report"] = self._dirs["df"] / f"col_report_{self.df_name}.xlsx"
+        self._paths["col_report"] = self._dirs["col_report"] / f"col_report_{self.df_name}.xlsx"
+        
         self._paths["col_report_for_changes"] = (
-            self._dirs["df"] / f"col_report_for_changes_{self.df_name}.xlsx"
+            self._dirs["col_report_for_changes"] / f"col_report_{self.df_name}.xlsx"
         )
+        
         self._paths["col_report_clean"] = (
-            self._dirs["df"] / f"col_report_clean_{self.df_name}.xlsx"
+            self._dirs["col_report_clean"] / f"col_report_{self.df_name}.xlsx"
         )
-
-
 
     def _get_overview_sheet(self):
         overview_sheet = []
@@ -279,7 +309,7 @@ class Cleaner:
             if remove_from_analysis:
                 self._remove_cols.append(col_name)
                 logger.info(
-                    f"{col_name} will be completely removed from further analysis."
+                    f"{col_name} completely removed from further analysis."
                 )
                 self.cat_col_names.remove(col_name)
                 continue
@@ -302,13 +332,13 @@ class Cleaner:
             if add_to_identifiers:
                 self.identifiers.append(col_name)
                 self.cat_col_names.remove(col_name)
-                logger.info(f"{col_name} will be added to identifiers.")
+                logger.info(f"{col_name} added to identifiers.")
 
             elif add_to_numerical:
                 self.num_col_names.append(col_name)
                 self.cat_col_names.remove(col_name)
                 logger.info(
-                    f"Category will be changed from categorical to numerical for {col_name}"
+                    f"Category changed from categorical to numerical for {col_name}"
                 )
 
     def _clean_numerical_cols(self):
@@ -322,7 +352,7 @@ class Cleaner:
             if remove_from_analysis:
                 self._remove_cols.append(col_name)
                 logger.info(
-                    f"{col_name} will be completely removed from further analysis."
+                    f"{col_name} completely removed from further analysis."
                 )
                 self.num_col_names.remove(col_name)
                 continue
@@ -338,13 +368,13 @@ class Cleaner:
             if add_to_identifiers:
                 self.identifiers.append(col_name)
                 self.num_col_names.remove(col_name)
-                logger.info(f"{col_name} will be added to identifiers.")
+                logger.info(f"{col_name} added to identifiers.")
 
             elif add_to_categorical:
                 self.cat_col_names.append(col_name)
                 self.num_col_names.remove(col_name)
                 logger.info(
-                    f"Category will be changed from numerical to categorical for {col_name}"
+                    f"Category changed from numerical to categorical for {col_name}"
                 )
 
     def _prepare_label_rename_dicts(self):
