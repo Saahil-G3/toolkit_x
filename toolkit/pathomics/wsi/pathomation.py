@@ -25,23 +25,6 @@ console_logger = Logger(name="pathomation").get_logger()
 
 from .base_wsi import BaseWSI
 
-def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
-    sessionID = core.connect(
-        pmacoreURL=pmacoreURL,
-        pmacoreUsername=pmacoreUsername,
-        pmacorePassword=pmacorePassword,
-        verify=True,
-    )
-    return sessionID
-
-def get_tray(wsi_paths):
-    tray = []
-    for wsi_path in wsi_paths:
-        tray.append(
-            {"Slide Info::Server;Slide Info::File name": "PMA.core;" + wsi_path}
-        )
-    tray = pd.DataFrame(tray)
-    return tray
 
 class PathomationWSI(BaseWSI):
     def __init__(
@@ -297,3 +280,23 @@ class PathomationWSI(BaseWSI):
             console_logger.info(f"Cleared annotation at layer {layerID}.")
         else:
             console_logger.warning(f"Unable to clear annotation at layer {layerID}.")
+
+    @staticmethod
+    def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
+        sessionID = core.connect(
+            pmacoreURL=pmacoreURL,
+            pmacoreUsername=pmacoreUsername,
+            pmacorePassword=pmacorePassword,
+            verify=True,
+        )
+        return sessionID
+
+    @staticmethod
+    def get_tray(wsi_paths):
+        tray = []
+        for wsi_path in wsi_paths:
+            tray.append(
+                {"Slide Info::Server;Slide Info::File name": "PMA.core;" + wsi_path}
+            )
+        tray = pd.DataFrame(tray)
+        return tray

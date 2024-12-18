@@ -91,8 +91,8 @@ def get_numpy_mask_from_geom(
     """
     if not mask_dims:
         minx, miny, maxx, maxy = geom.bounds
-        width = int((maxx - minx))
-        height = int((maxy - miny))
+        width = int((maxx - minx)*scale_factor)
+        height = int((maxy - miny)*scale_factor)
         mask_dims = (height, width)
         origin = (minx, miny)
 

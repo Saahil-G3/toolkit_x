@@ -25,7 +25,7 @@ def get_datetime_run_id():
 
 class Cleaner:
     def __init__(self, run_id=None):
-        
+
         if run_id is None:
             self._run_id = get_datetime_run_id()
         else:
@@ -33,15 +33,15 @@ class Cleaner:
 
         self._paths = {}
         self._dirs = {}
-        
+
         self._dirs["cleaner_root"] = Path(f"analytics/cleaner")
-    
+
     def _set_common_configuration(self, branch_name, df_name, make_df_dir):
         if branch_name is not None:
             self.run_id = f"{self._run_id}/{branch_name}"
         else:
             self.run_id = self._run_id
-            
+
         if df_name is not None:
             self.df_name = df_name
         else:
@@ -50,18 +50,17 @@ class Cleaner:
         self._initialize_cleaner_paths(make_df_dir=make_df_dir)
 
     def configure_cleaner_run(
-        self, 
-        branch_name=None, 
-        input_df=None, 
-        df_name=None, 
-        make_df_dir=False
+        self, branch_name=None, input_df=None, df_name=None, make_df_dir=False
     ):
-        self._set_common_configuration(branch_name=branch_name, df_name=df_name, make_df_dir=make_df_dir)
+        self._set_common_configuration(
+            branch_name=branch_name, df_name=df_name, make_df_dir=make_df_dir
+        )
 
         self._set_df_for_cleaner(input_df=input_df)
-        logger.info(f"Configured df: {df_name} with branch_name: {branch_name} for cleaner.")
-        
-        
+        logger.info(
+            f"Configured df: {df_name} with branch_name: {branch_name} for cleaner."
+        )
+
     def _set_df_for_cleaner(self, input_df):
 
         if self._paths["df_clean"].exists():
@@ -78,7 +77,7 @@ class Cleaner:
         else:
             self.df = copy.deepcopy(input_df)
             self.df.to_csv(self._paths["df"], index=False)
-    
+
     def _set_common_df(self):
 
         if self._paths["df_clean"].exists():
@@ -91,7 +90,7 @@ class Cleaner:
             raise ValueError(f"No clean df found, run cleaner before anything else.")
 
     def create_col_report(self):
-        
+
         self._sort_cols()
         overview_sheet = self._get_overview_sheet()
         num_sheet, num_edit_sheet = self._get_num_sheet()
@@ -103,8 +102,8 @@ class Cleaner:
             num_edit_sheet.to_excel(writer, sheet_name="num_todo", index=False)
             cat_sheet.to_excel(writer, sheet_name="cat_stats", index=False)
             cat_edit_sheet.to_excel(writer, sheet_name="cat_todo", index=False)
-            
-        logger.info(f"Column report created at {self._paths["col_report"]}")
+
+        logger.info(f"Column report created at {self._paths['col_report']}")
 
     def _sort_cols(self):
         self._all_col_names = self.df.columns.tolist()
@@ -121,37 +120,43 @@ class Cleaner:
         self.sorted_col_names["other"] = self.df.select_dtypes(
             exclude=["number", "object", "category", "datetime"]
         ).columns.tolist()
-        
-    def _initialize_cleaner_paths(self, make_df_dir):        
-              
-        self._dirs["cleaner_results"] = self._dirs["cleaner_root"]/f"{self.run_id}"
+
+    def _initialize_cleaner_paths(self, make_df_dir):
+
+        self._dirs["cleaner_results"] = self._dirs["cleaner_root"] / f"{self.run_id}"
         self._dirs["cleaner_results"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["df"] = self._dirs["cleaner_results"]/f"df"
+        self._dirs["df"] = self._dirs["cleaner_results"] / f"df"
         self._dirs["df"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["col_report"] = self._dirs["cleaner_results"]/f"col_report"
+        self._dirs["col_report"] = self._dirs["cleaner_results"] / f"col_report"
         self._dirs["col_report"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["col_report_for_changes"] = self._dirs["cleaner_results"]/f"col_report_for_changes"
+        self._dirs["col_report_for_changes"] = (
+            self._dirs["cleaner_results"] / f"col_report_for_changes"
+        )
         self._dirs["col_report_for_changes"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["df_clean"] = self._dirs["cleaner_results"]/f"df_clean"
+        self._dirs["df_clean"] = self._dirs["cleaner_results"] / f"df_clean"
         self._dirs["df_clean"].mkdir(exist_ok=True, parents=True)
 
-        self._dirs["col_report_clean"] = self._dirs["cleaner_results"]/f"col_report_clean"
-        self._dirs["col_report_clean"].mkdir(exist_ok=True, parents=True)     
+        self._dirs["col_report_clean"] = (
+            self._dirs["cleaner_results"] / f"col_report_clean"
+        )
+        self._dirs["col_report_clean"].mkdir(exist_ok=True, parents=True)
 
-        self._paths["df"] = self._dirs['df'] / f"df_{self.df_name}.csv"
-        
+        self._paths["df"] = self._dirs["df"] / f"df_{self.df_name}.csv"
+
         self._paths["df_clean"] = self._dirs["df_clean"] / f"df_{self.df_name}.csv"
 
-        self._paths["col_report"] = self._dirs["col_report"] / f"col_report_{self.df_name}.xlsx"
-        
+        self._paths["col_report"] = (
+            self._dirs["col_report"] / f"col_report_{self.df_name}.xlsx"
+        )
+
         self._paths["col_report_for_changes"] = (
             self._dirs["col_report_for_changes"] / f"col_report_{self.df_name}.xlsx"
         )
-        
+
         self._paths["col_report_clean"] = (
             self._dirs["col_report_clean"] / f"col_report_{self.df_name}.xlsx"
         )
@@ -308,9 +313,7 @@ class Cleaner:
 
             if remove_from_analysis:
                 self._remove_cols.append(col_name)
-                logger.info(
-                    f"{col_name} completely removed from further analysis."
-                )
+                logger.info(f"{col_name} completely removed from further analysis.")
                 self.cat_col_names.remove(col_name)
                 continue
 
@@ -351,9 +354,7 @@ class Cleaner:
 
             if remove_from_analysis:
                 self._remove_cols.append(col_name)
-                logger.info(
-                    f"{col_name} completely removed from further analysis."
-                )
+                logger.info(f"{col_name} completely removed from further analysis.")
                 self.num_col_names.remove(col_name)
                 continue
 
