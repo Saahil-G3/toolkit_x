@@ -18,6 +18,7 @@ def get_s3_object(endpoint_url, aws_access_key_id, aws_secret_access_key, use_ss
     )
     return s3
 
+from toolkit.system.storage.data_io_tools import save_pickle, load_pickle
 
 class S3:
     def __init__(self, s3_object):
@@ -26,18 +27,25 @@ class S3:
         self.bucket_keys = {}
         self.queried_keys = {}
 
-    def get_keys_from_bucket(self, bucket_name, show_progress=True):
-        self.bucket_keys.setdefault(bucket_name, [])
-        paginator = self._s3.get_paginator("list_objects_v2")
-        iterator = paginator.paginate(Bucket=bucket_name)
-
-        iterator = tqdm(iterator, disable=not show_progress)
-
-        for page in iterator:
-            if "Contents" in page:
-                self.bucket_keys[bucket_name].extend(
-                    obj["Key"] for obj in page["Contents"]
-                )
+    def get_keys_from_bucket(self, bucket_name, show_progress=True, replace_keys=False):
+        keys_path = Path(f"s3/bucket_keys/{bucket_name}.pkl")
+        keys_path.parent.mkdir(exist_ok=True, parents=True)
+        if keys_path.exists() and not replace_keys:
+            self.bucket_keys[bucket_name] = load_pickle(keys_path)
+        else:
+            self.bucket_keys.setdefault(bucket_name, [])
+            paginator = self._s3.get_paginator("list_objects_v2")
+            iterator = paginator.paginate(Bucket=bucket_name)
+    
+            iterator = tqdm(iterator, disable=not show_progress)
+    
+            for page in iterator:
+                if "Contents" in page:
+                    self.bucket_keys[bucket_name].extend(
+                        obj["Key"] for obj in page["Contents"]
+                    )
+            
+            save_pickle(data=self.bucket_keys[bucket_name], path=keys_path, replace=replace_keys)
 
     def _set_bucket_list(self):
         response = self._s3.list_buckets()
@@ -49,9 +57,12 @@ class S3:
         self,
         bucket_name: str,
         object_key: Path,
-        folder: Path = Path(f"s3_files"),
+        folder: Path = "downloaded_files",
         return_local_file_path=False,
     ):
+        folder = f"s3/{folder}"
+        folder.mkdir(exist_ok=True, parents=True)
+        
         object_key = Path(object_key)
         local_file_path = folder / object_key.name
         if local_file_path.exists():
