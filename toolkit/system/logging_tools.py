@@ -242,7 +242,8 @@ class Timer:
                 "Subtimer has not been started. Call `start_subtimer()` before `stop_subtimer()`."
             )
         elapsed_time, unit = self._get_elapsed_subtime()
-        self.temp_timer_dict[process] = f"{elapsed_time} {unit}"
+        self.temp_timer_dict["process"] = process
+        self.temp_timer_dict["time"] = f"{elapsed_time} {unit}"
         if comments:
             self.temp_timer_dict["comments"] = comments
 

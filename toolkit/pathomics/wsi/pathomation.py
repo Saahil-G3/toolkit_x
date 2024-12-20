@@ -18,9 +18,10 @@ text_logger = Logger(
     name="pathomation",
     log_to_console=False,
     log_to_txt=True,
-    log_to_csv=True,
+    log_to_csv=False,
     add_timestamp=True,
 ).get_logger()
+
 console_logger = Logger(name="pathomation").get_logger()
 
 from .base_wsi import BaseWSI

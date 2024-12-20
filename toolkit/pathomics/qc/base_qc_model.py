@@ -43,14 +43,14 @@ class BaseQCModel(BasePathomicsModel, ABC):
         replace_raw_predictions=False,
         **kwargs,
     ):
-        self.timer.reset()
-        self.timer.start_subtimer()
-
         if self.raw_predictions_path.exists() and not replace_raw_predictions:
             logger.warning(
                 f"Inference already exists at {self.results_folder}, set replace_raw_predictions=True to replace the current file."
             )
             return
+
+        self.timer.reset()
+        self.timer.start_subtimer()
 
         self.model.eval()
 
@@ -94,14 +94,13 @@ class BaseQCModel(BasePathomicsModel, ABC):
 
         self.custom_timer_metrics = {}
         self.custom_timer_metrics["wsi"] = self.slice_key
-        kwargs_dict = {key: value for key, value in kwargs.items()}
-        self.custom_timer_metrics.update(kwargs_dict)
+        #kwargs_dict = {key: value for key, value in kwargs.items()}
+        #self.custom_timer_metrics.update(kwargs_dict)
         self.custom_timer_metrics["store_every_batch"] = store_every_batch
         self.custom_timer_metrics["autocast_dtype"] = str(autocast_dtype)
         self.custom_timer_metrics["model_name"] = self._model_name
 
         self.timer.stop_subtimer(process="inference")
-
         self.timer.set_custom_timer_metrics(self.custom_timer_metrics)
         self.timer.save_timer_logs()
 
@@ -113,6 +112,16 @@ class BaseQCModel(BasePathomicsModel, ABC):
         replace_geojson=False,
         cmap_index=6,
     ):
+        
+        if (
+            self.processed_predictions_path.exists()
+            and not replace_processed_predictions
+        ):
+            logger.warning(
+                f"h5 already exists at {self.processed_predictions_path}, set replace_processed_predictions=True to replace the current file."
+            )
+            return
+
         self.timer.reset()
         self.timer.start_subtimer()
         self.custom_timer_metrics = {}
@@ -128,55 +137,47 @@ class BaseQCModel(BasePathomicsModel, ABC):
 
         shifted_dims = (shift_dims[0] * scale_factor, shift_dims[1] * scale_factor)
         processed_pred_dict = defaultdict(list)
+        
+        with h5py.File(self.raw_predictions_path, "r") as h5file:
+            predictions = h5file["predictions"]
+            assert len(predictions) == len(coordinates)
 
-        if (
-            self.processed_predictions_path.exists()
-            and not replace_processed_predictions
-        ):
-            logger.warning(
-                f"h5 already exists at {self.processed_predictions_path}, set replace_processed_predictions=True to replace the current file."
-            )
-        else:
-            with h5py.File(self.raw_predictions_path, "r") as h5file:
-                predictions = h5file["predictions"]
-                assert len(predictions) == len(coordinates)
+            if show_progress:
+                iterator = tqdm(
+                    zip(predictions, coordinates),
+                    total=len(coordinates),
+                    desc="Post processing",
+                )
+            else:
+                iterator = zip(predictions, coordinates)
 
-                if show_progress:
-                    iterator = tqdm(
-                        zip(predictions, coordinates),
-                        total=len(coordinates),
-                        desc="Post processing",
+            for pred, ((x, y), boundary_status) in iterator:
+                pred = cv2.medianBlur(pred, ksize=self._med_blur_ksize)
+                if boundary_status:
+                    mask = self._get_boundary_mask(
+                        x, y, box_width, box_height, extraction_dims, scale_factor
                     )
-                else:
-                    iterator = zip(predictions, coordinates)
+                    pred *= mask
+                pred_sliced = pred[
+                    shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
+                ]
+                for predicted_class, value in self._class_map.items():
+                    if predicted_class == "bg":  # Skip background
+                        continue
+                    class_mask = (pred_sliced == value).astype(np.uint8)
+                    polys = self._get_prediction_geom(
+                        x, y, class_mask, shifted_dims, scale_factor
+                    )
+                    if polys is not None:
+                        processed_pred_dict[predicted_class].extend(polys)
 
-                for pred, ((x, y), boundary_status) in iterator:
-                    pred = cv2.medianBlur(pred, ksize=self._med_blur_ksize)
-                    if boundary_status:
-                        mask = self._get_boundary_mask(
-                            x, y, box_width, box_height, extraction_dims, scale_factor
-                        )
-                        pred *= mask
-                    pred_sliced = pred[
-                        shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
-                    ]
-                    for predicted_class, value in self._class_map.items():
-                        if predicted_class == "bg":  # Skip background
-                            continue
-                        class_mask = (pred_sliced == value).astype(np.uint8)
-                        polys = self._get_prediction_geom(
-                            x, y, class_mask, shifted_dims, scale_factor
-                        )
-                        if polys is not None:
-                            processed_pred_dict[predicted_class].extend(polys)
-
-                    if len(self._class_map) > 2:
-                        pred_sliced[pred_sliced != 0] = 1
-                        polys = self._get_prediction_geom(
-                            x, y, pred_sliced, shifted_dims, scale_factor
-                        )
-                        if polys is not None:
-                            processed_pred_dict["combined"].extend(polys)
+                if len(self._class_map) > 2:
+                    pred_sliced[pred_sliced != 0] = 1
+                    polys = self._get_prediction_geom(
+                        x, y, pred_sliced, shifted_dims, scale_factor
+                    )
+                    if polys is not None:
+                        processed_pred_dict["combined"].extend(polys)
 
             if save_processed_predictions:
                 self._save_processed_predictions(

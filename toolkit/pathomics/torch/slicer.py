@@ -104,9 +104,9 @@ class Slicer(BaseModel):
         params["target_mpp"] = target_mpp
 
         if input_tuple:
-            params["patch_dims"] = patch_dims
-            params["overlap_dims"] = overlap_dims
-            params["context_dims"] = context_dims
+            params["patch_dims"] = patch_size
+            params["overlap_dims"] = overlap_size
+            params["context_dims"] = context_size
         else:
             params["patch_dims"] = (patch_size, patch_size)
             params["overlap_dims"] = (overlap_size, overlap_size)
