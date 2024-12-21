@@ -60,7 +60,7 @@ class S3:
         folder: Path = "downloaded_files",
         return_local_file_path=False,
     ):
-        folder = f"s3/{folder}"
+        folder = Path(f"s3/{folder}")
         folder.mkdir(exist_ok=True, parents=True)
         
         object_key = Path(object_key)
