@@ -1,6 +1,6 @@
 ssh -T git@github.com
 git add .
-git commit -m "message"
+git commit -m "generic"
 git push origin main --force
 
 git ls-files | grep '.ipynb_checkpoints'

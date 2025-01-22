@@ -191,7 +191,7 @@ class PathomationWSI(BaseWSI):
             sessionID=self.sessionID,
         )
 
-        console_logger.info(f"Add annotation: {add_annotation_output['Code']}")
+        console_logger.info(f"Add annotation ({self.name}): {add_annotation_output['Code']}")
         text_logger.info(f"Added annotation for: {self.name}.")
         text_logger.info(f"{add_annotation_output}")
 
