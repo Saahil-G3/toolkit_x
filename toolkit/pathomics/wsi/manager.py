@@ -3,16 +3,18 @@ from pma_python import core
 from .tiffslide import TiffSlideWSI
 from .pathomation import PathomationWSI
 
+from toolkit.pathomics.caib.wsi import PathomationCAIBWSI
 
 class WSIManager:
-    supported_wsi_types = {"TiffSlide", "Pathomation"}
+    supported_wsi_types = {"TiffSlide", "Pathomation", "PathomationCAIBWSI"}
     wsi_classes = {
         "TiffSlide": TiffSlideWSI,
         "Pathomation": PathomationWSI,
+        "PathomationCAIBWSI": PathomationCAIBWSI,
     }
 
     def __init__(
-        self, wsi_path, wsi_type="TiffSlide", sessionID=None, tissue_geom=None
+        self, wsi_path, wsi_type="TiffSlide", tissue_geom=None, sessionID=None, s3=None
     ):
         """
         Initializes the WSIManager with the provided WSI path, type, and optional metadata.
@@ -32,6 +34,7 @@ class WSIManager:
         self.wsi_path = wsi_path
         self.sessionID = sessionID
         self.tissue_geom = tissue_geom
+        self.s3 = s3
         self.wsi = self._get_wsi()
 
     def _get_wsi(self):
@@ -42,11 +45,22 @@ class WSIManager:
             object: An instance of TiffSlideWSI or PathomationWSI.
         """
         wsi_class = self.wsi_classes[self.wsi_type]
-        kwargs = {
-            "wsi_path": self.wsi_path,
-            "tissue_geom": self.tissue_geom,
-        }
-        if self.wsi_type == "Pathomation":
+        
+        kwargs = {}
+        
+        if self.wsi_type == "Pathomation" or "PathomationCAIBWSI":
             kwargs["sessionID"] = self.sessionID
+            
+        if self.wsi_type == "PathomationCAIBWSI":
+            kwargs["s3"] = self.s3
+            kwargs = {
+                "wsi_name": self.wsi_path,
+                "tissue_geom": self.tissue_geom,
+            }
+        else:
+            kwargs = {
+                "wsi_path": self.wsi_path,
+                "tissue_geom": self.tissue_geom,
+            }
 
         return wsi_class(**kwargs)

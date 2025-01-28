@@ -82,6 +82,9 @@ class Slicer(BaseModel):
             
         if tissue_geom:
             self._set_tissue_geom(tissue_geom=tissue_geom)
+        else:
+            self.tissue_geom = None
+            self.tissue_geom_prepared = None
 
     def _set_tissue_geom(self, tissue_geom):
         self.tissue_geom = tissue_geom
@@ -96,6 +99,7 @@ class Slicer(BaseModel):
         slice_key=None,
         input_tuple: bool = False,
         show_progress: bool = False,
+        set_coordinates: bool = True,
     ):
         slice_key = slice_key or str(self.wsi.stem)
         self.recent_slice_key = slice_key
@@ -114,12 +118,14 @@ class Slicer(BaseModel):
 
         self._set_extraction_params(slice_key=slice_key)
 
-        self.sph[slice_key]["all_coordinates"] = self.wsi._get_slice_wsi_coordinates(
-            params
-        )
+        if set_coordinates:
 
-        if self.tissue_geom is not None:
-            self._filter_coordinates(slice_key, show_progress=show_progress)
+            self.sph[slice_key]["all_coordinates"] = self.wsi._get_slice_wsi_coordinates(
+                params
+            )
+    
+            if self.tissue_geom is not None:
+                self._filter_coordinates(slice_key, show_progress=show_progress)
 
     def _filter_coordinates(self, slice_key, show_progress=True):
         params = self.sph[slice_key]["params"]

@@ -2,11 +2,11 @@ from pathlib import Path
 from toolkit.pathomics.wsi.pathomation import PathomationWSI
 
 class PathomationCAIBWSI(PathomationWSI):
-    def __init__(self, wsi_name, sessionID=None, s3=None):
+    def __init__(self, wsi_name, sessionID=None, s3=None, tissue_geom=None):
 
         self.wsi_name = Path(wsi_name)
         self.wsi_path = self.get_wsi_path_from_name(self.wsi_name)
-        PathomationWSI.__init__(self, wsi_path=self.wsi_path, sessionID=sessionID)
+        PathomationWSI.__init__(self, wsi_path=self.wsi_path, sessionID=sessionID, tissue_geom=tissue_geom)
         self.s3 = s3
         
     def download_wsi(self, bucket_name="caib-wsi"):
