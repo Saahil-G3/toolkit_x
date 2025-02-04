@@ -36,8 +36,8 @@ class TiffSlideWSI(BaseWSI):
     def get_level_for_downsample(self, factor):
         return self._wsi.get_best_level_for_downsample(factor)
 
-    def get_region_for_slicer(self, coordinates, slice_params):
-        x, y = coordinates
+    def get_region_for_slicer(self, coordinate, slice_params):
+        x, y = coordinate
         w, h = slice_params["extraction_dims_at_level"]
         level = slice_params["level"]
         region = self._get_region(x, y, w, h, level).convert("RGB")

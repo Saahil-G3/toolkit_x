@@ -30,9 +30,9 @@ class BaseModel(GpuManager, ABC):
             if self._model_class == "smp":
                 self._load_smp_model()
                 if self.device_type == "gpu":
-                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()}:{self.gpu_id}")
+                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()}:{self.gpu_id} with state_dict at {self._state_dict_path}")
                 else:
-                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()}")
+                    logger.info(f"Loaded model {self._model_name} on {self.device_type.upper()} with state_dict at {self._state_dict_path}")
             else:
                 raise ValueError(f"model class{self._model_class} not implemented ")
         else:

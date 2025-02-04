@@ -58,6 +58,7 @@ class BasePathomicsModel(Slicer, ABC):
         device_type: str = "gpu",
         dataparallel: bool = False,
         dataparallel_device_ids: list[int] = None,
+        state_dict_path = None,
     ):
         super().__init__(
             gpu_id=gpu_id,
@@ -65,7 +66,9 @@ class BasePathomicsModel(Slicer, ABC):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-
+        
+        self.state_dict_path = state_dict_path
+        
         self._set_model_specific_params()
         self._set_model_class()
 
@@ -246,6 +249,11 @@ class BasePathomicsModel(Slicer, ABC):
             polys = None
 
         return polys
+        
+    def get_class_geom(self, class_name):
+        wkt_dict = h5.load_wkt_dict(self.processed_predictions_path)
+        mgeom = loads(wkt_dict[class_name])
+        return mgeom
 
     @abstractmethod
     def _set_model_specific_params(self):

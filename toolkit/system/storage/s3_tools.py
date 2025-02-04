@@ -56,30 +56,19 @@ class S3:
     def download_file(
         self,
         bucket_name: str,
-        object_key: Path,
-        folder: Path = "downloaded_files",
-        return_local_file_path=False,
+        object_key: str,
+        local_file_path: str,
     ):
-        folder = Path(f"s3/{folder}")
-        folder.mkdir(exist_ok=True, parents=True)
-        
-        object_key = Path(object_key)
-        local_file_path = folder / object_key.name
-        if local_file_path.exists():
+
+        if Path(local_file_path).exists():
             message = f"File already exists at {local_file_path}"
             logger.info(message)
-            if return_local_file_path:
-                return local_file_path
-            else:
-                return
+            return
 
-        local_file_path.parent.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Started downloading {object_key.name}.")
-        self._s3.download_file(bucket_name, str(object_key), str(local_file_path))
+        Path(local_file_path).parent.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Started downloading {Path(object_key).name}.")
+        self._s3.download_file(Bucket=bucket_name, Key=object_key, Filename=local_file_path)
         logger.info(f"File downloaded at {local_file_path}.")
-
-        if return_local_file_path:
-            return local_file_path
 
     def upload_file(self, bucket_name: str, upload_key: str, local_file_path: str):
         self._s3.upload_file(local_file_path, bucket_name, upload_key)

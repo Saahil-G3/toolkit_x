@@ -42,25 +42,22 @@ class WSIManager:
         Returns an object representing the WSI based on the specified type.
 
         Returns:
-            object: An instance of TiffSlideWSI or PathomationWSI.
+            object: An instance of TiffSlideWSI, PathomationWSI or "PathomationCAIBWSI".
         """
         wsi_class = self.wsi_classes[self.wsi_type]
         
         kwargs = {}
         
-        if self.wsi_type == "Pathomation" or "PathomationCAIBWSI":
+        if self.wsi_type == "Pathomation" or self.wsi_type == "PathomationCAIBWSI":
             kwargs["sessionID"] = self.sessionID
             
         if self.wsi_type == "PathomationCAIBWSI":
             kwargs["s3"] = self.s3
-            kwargs = {
-                "wsi_name": self.wsi_path,
-                "tissue_geom": self.tissue_geom,
-            }
+            kwargs["wsi_name"] = self.wsi_path
+            kwargs["tissue_geom"] = self.tissue_geom
+
         else:
-            kwargs = {
-                "wsi_path": self.wsi_path,
-                "tissue_geom": self.tissue_geom,
-            }
+            kwargs["wsi_path"] = self.wsi_path
+            kwargs["tissue_geom"] = self.tissue_geom
 
         return wsi_class(**kwargs)

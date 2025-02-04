@@ -1,4 +1,5 @@
 import cv2
+import math
 import torch
 import geojson
 import numpy as np
@@ -34,6 +35,66 @@ from shapely.prepared import prep as prep_geom_for_query
 # from shapely.validation import make_valid
 # from shapely.strtree import STRtree
 
+class GeomStats():
+    def __init__(self):
+        pass
+
+    def get_circularity(self, geom):
+        area = geom.area
+        perimeter = geom.length
+    
+        if perimeter == 0:
+            return 0.0
+    
+        circularity = (4 * math.pi * area) / (perimeter ** 2)
+    
+        return circularity
+
+    def get_major_minor_axes(self, geom):
+        """
+        Calculates the major and minor axes of a geometry's minimum rotated rectangle.
+    
+        This function computes the major and minor axes of the bounding box that minimally encloses the input Shapely geometry, while allowing rotation. The axes are derived from the dimensions of this rotated rectangle.
+    
+        Args:
+            geom: A Shapely geometry object for which the major and minor axes are to be calculated.
+    
+        Returns:
+            dict: A dictionary containing:
+                - "minor_axis": Length of the shorter side of the minimum rotated rectangle.
+                - "major_axis": Length of the longer side of the minimum rotated rectangle.
+        """
+        # min_rot_rect = geom.minimum_rotated_rectangle
+        # min_rot_rect_coords = list(min_rot_rect.exterior.coords)
+        # x_coords = [coord[0] for coord in min_rot_rect_coords]
+        # y_coords = [coord[1] for coord in min_rot_rect_coords]
+        # width = max(x_coords) - min(x_coords)
+        # height = max(y_coords) - min(y_coords)
+    
+        # major_minor_axis_dict = {}
+        # major_minor_axis_dict["minor_axis"] = min(width, height)
+        # major_minor_axis_dict["major_axis"] = max(width, height)
+
+        # Get the minimum rotated rectangle
+        min_rot_rect = geom.minimum_rotated_rectangle
+        
+        # Extract the coordinates of the rectangle's exterior
+        min_rot_rect_coords = list(min_rot_rect.exterior.coords)
+        
+        # Calculate the lengths of the sides of the rectangle
+        side_lengths = []
+        for i in range(len(min_rot_rect_coords) - 1):
+            x1, y1 = min_rot_rect_coords[i]
+            x2, y2 = min_rot_rect_coords[i + 1]
+            length = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+            side_lengths.append(length)
+        
+        # The major axis is the longest side, and the minor axis is the shortest side
+        major_axis = max(side_lengths)
+        minor_axis = min(side_lengths)
+        
+        return {"minor_axis": minor_axis, "major_axis": major_axis}
+        #return major_minor_axis_dict
 
 def get_major_minor_axes(geom):
     """

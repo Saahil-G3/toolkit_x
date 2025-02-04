@@ -20,8 +20,7 @@ class NodeDetectionV1(BaseQCModel):
         gpu_id: int = 0,
         device_type: str = "gpu",
         dataparallel: bool = False,
-        dataparallel_device_ids: list[int] = None,
-        
+        dataparallel_device_ids: list[int] = None,     
     ):
         super().__init__(
             gpu_id=gpu_id,
@@ -29,7 +28,7 @@ class NodeDetectionV1(BaseQCModel):
             dataparallel=dataparallel,
             dataparallel_device_ids=dataparallel_device_ids,
         )
-        
+
     def _set_model_specific_params(self) -> None:
         self._detects_tissue = True
         self._model_name = "node_detection_v1"
@@ -38,7 +37,10 @@ class NodeDetectionV1(BaseQCModel):
         self._med_blur_ksize = 25
 
     def _set_model_class(self) -> None:
-        self._state_dict_path = Path(f"{weights_dir}/node_detection_v1.pth")
+        if self.state_dict_path is None:
+            self._state_dict_path = Path(f"{weights_dir}/node_detection_v1_CP63.pth")
+        else:
+            self._state_dict_path = Path(self.state_dict_path)
         self._model_class = "smp"
         self._architecture = "UnetPlusPlus"
         self._encoder_name = "resnet34"

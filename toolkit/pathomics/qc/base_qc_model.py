@@ -197,8 +197,3 @@ class BaseQCModel(BasePathomicsModel, ABC):
         self.timer.stop_subtimer(process="post processing")
         self.timer.set_custom_timer_metrics(self.custom_timer_metrics)
         self.timer.save_timer_logs()
-
-    def get_class_geom(self, class_name):
-        wkt_dict = h5.load_wkt_dict(self.processed_predictions_path)
-        mgeom = loads(wkt_dict[class_name])
-        return mgeom
