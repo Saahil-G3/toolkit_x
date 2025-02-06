@@ -56,7 +56,7 @@ class PathomationWSI(BaseWSI):
         self.level_count = len(self.zoomlevels)
         self._set_level_mpp_dict()
 
-        text_logger.info(f"Initiated session with sessionID: {self.sessionID} for WSI at {self.wsi_path}.")
+        text_logger.info(f"Initiated session with sessionID: {self.sessionID} for WSI at {self._wsi_path}.")
 
     def get_thumbnail_at_mpp(self, target_mpp=50):
         factor = self.factor_mpp(target_mpp)

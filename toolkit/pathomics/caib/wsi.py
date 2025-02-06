@@ -5,8 +5,8 @@ class PathomationCAIBWSI(PathomationWSI):
     def __init__(self, wsi_name, sessionID=None, s3=None, tissue_geom=None):
 
         self.wsi_name = Path(wsi_name)
-        self.wsi_path = self.get_wsi_path_from_name(self.wsi_name)
-        PathomationWSI.__init__(self, wsi_path=self.wsi_path, sessionID=sessionID, tissue_geom=tissue_geom)
+        self.slideRef = self.get_slideRef_from_name(wsi_name=self.wsi_name)
+        PathomationWSI.__init__(self, wsi_path=self.slideRef, sessionID=sessionID, tissue_geom=tissue_geom)
         self.s3 = s3
         
     def download_wsi(self, bucket_name="caib-wsi"):
@@ -14,7 +14,7 @@ class PathomationCAIBWSI(PathomationWSI):
         self.s3.download_file(bucket_name, self.s3.queried_keys[str(self.wsi_name)][0])
 
     @staticmethod
-    def get_wsi_path_from_name(wsi_name: str):
+    def get_slideRef_from_name(wsi_name: str):
         wsi_name = str(wsi_name)
         part1 = wsi_name[:16]
         part2 = wsi_name[:21]
