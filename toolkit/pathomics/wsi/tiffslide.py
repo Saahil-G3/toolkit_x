@@ -79,20 +79,22 @@ class TiffSlideWSI(BaseWSI):
         max_x = x_lim + context_dims[0]
         max_y = y_lim + context_dims[1]
 
+        max_x_adj = max_x - extraction_dims_at_level[0]
+        max_y_adj = max_y - extraction_dims_at_level[1]
+
         scaled_stride_x = stride_dims_at_level[0] * factor2
         scaled_stride_y = stride_dims_at_level[1] * factor2
         scaled_extraction_x = extraction_dims_at_level[0] * factor2
         scaled_extraction_y = extraction_dims_at_level[1] * factor2
 
-        max_x_adj = max_x - extraction_dims_at_level[0]
-        max_y_adj = max_y - extraction_dims_at_level[1]
-
         for x in range(-context_dims[0], max_x, stride_dims_at_level[0]):
-            x_clipped = min(x, max_x_adj)
+            #x_clipped = min(x, max_x_adj)
+            x_clipped = max(0, min(x, max_x_adj)) # Ensure non-negative coordinates
             x_scaled = int(self.round_to_nearest_even(x_clipped * factor2))
 
             for y in range(-context_dims[1], max_y, stride_dims_at_level[1]):
-                y_clipped = min(y, max_y_adj)
+                #y_clipped = min(y, max_y_adj)
+                y_clipped = max(0, min(y, max_y_adj)) # Ensure non-negative coordinates  
                 y_scaled = int(self.round_to_nearest_even(y_clipped * factor2))
 
                 coordinates.append(((x_scaled, y_scaled), False))

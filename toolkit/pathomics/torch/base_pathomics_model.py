@@ -98,7 +98,7 @@ class BasePathomicsModel(Slicer, ABC):
 
         self._patch_size = patch_size
         self._overlap_size = overlap_size or int(self._patch_size * 0.0625)
-        self._context_size = context_size or 2 * self._overlap_size
+        self._context_size = context_size
 
         self._set_wsi(**kwargs1)
         slice_key = str(self.wsi.stem)

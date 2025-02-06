@@ -178,13 +178,15 @@ class Slicer(BaseModel):
         context_dims = params["context_dims"]
         overlap_dims = params["overlap_dims"]
         patch_dims = params["patch_dims"]
+        if patch_dims[0] <= (overlap_dims[0] + 2 * context_dims[0]) or patch_dims[1] <= (overlap_dims[1] + 2 * context_dims[1]):
+            raise ValueError("patch_dims must be larger than overlap_dims + 2 * context_dims")
 
-        params["shift_dims"] = (
-            context_dims[0] + overlap_dims[0] // 2,
-            context_dims[1] + overlap_dims[1] // 2,
-        )
+        # params["shift_dims"] = (
+        #     context_dims[0] + overlap_dims[0] // 2,
+        #     context_dims[1] + overlap_dims[1] // 2,
+        # )
 
-        params["shift_dims"] = (overlap_dims[0], overlap_dims[1])
+        params["shift_dims"] = (overlap_dims[0]//4, overlap_dims[1]//4)
 
         params["extraction_dims"] = (
             patch_dims[0] + 2 * context_dims[0],

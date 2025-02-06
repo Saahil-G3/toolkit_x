@@ -134,15 +134,9 @@ class PathomationWSI(BaseWSI):
         stride_dims = slice_params["stride_dims"]
         context_dims = slice_params["context_dims"]
 
-        scaled_extraction_dims = int(extraction_dims[0] * factor1), int(
-            extraction_dims[1] * factor1
-        )
-        scaled_stride_dims = int(stride_dims[0] * factor1), int(
-            stride_dims[1] * factor1
-        )
-        scaled_context_dims = int(context_dims[0] * factor1), int(
-            context_dims[1] * factor1
-        )
+        scaled_extraction_dims = int(extraction_dims[0] * factor1), int(extraction_dims[1] * factor1)
+        scaled_stride_dims = int(stride_dims[0] * factor1), int(stride_dims[1] * factor1)
+        scaled_context_dims = int(context_dims[0] * factor1), int(context_dims[1] * factor1)
 
         max_x = x_lim + scaled_context_dims[0]
         max_y = y_lim + scaled_context_dims[1]
@@ -151,12 +145,14 @@ class PathomationWSI(BaseWSI):
         max_y_adj = max_y - scaled_extraction_dims[1]
 
         for x in range(-scaled_context_dims[0], max_x, scaled_stride_dims[0]):
-            x_clipped = min(x, max_x_adj)
+            #x_clipped = min(x, max_x_adj)
+            x_clipped = max(0, min(x, max_x_adj))
 
             for y in range(-scaled_context_dims[1], max_y, scaled_stride_dims[1]):
-                y_clipped = min(y, max_y_adj)
+                #y_clipped = min(y, max_y_adj)
+                y_clipped = max(0, min(y, max_y_adj)) 
 
-                coordinates.append(((x, y), False))
+                coordinates.append(((x_clipped, y_clipped), False))
         return coordinates
 
     # Pathomation Specific Methods

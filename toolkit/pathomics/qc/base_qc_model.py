@@ -158,8 +158,9 @@ class BaseQCModel(BasePathomicsModel, ABC):
                         x, y, box_width, box_height, extraction_dims, scale_factor
                     )
                     pred *= mask
+                #pred_sliced = pred
                 pred_sliced = pred[
-                    shift_dims[0] : -shift_dims[0], shift_dims[1] : -shift_dims[1]
+                    shift_dims[0] : -shift_dims[0], shift_dims[1]: -shift_dims[1]
                 ]
                 for predicted_class, value in self._class_map.items():
                     if predicted_class == "bg":  # Skip background
