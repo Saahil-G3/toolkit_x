@@ -225,7 +225,7 @@ class BasePathomicsModel(Slicer, ABC):
                     multipolygon = make_valid(multipolygon) 
                 wkt_dict[key] = multipolygon.wkt
             except Exception as e:
-                warnings.warn(f"Skipping {key} due to geometry error: {e}")
+                warnings.warn(f"Skipping '{key}' due to geometry error: {e}", UserWarning)
                 continue  
 
         h5.save_wkt_dict(wkt_dict, self.processed_predictions_path)
