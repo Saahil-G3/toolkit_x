@@ -257,6 +257,7 @@ class PathomationWSI(BaseWSI):
             )
 
             console_logger.info(f"Add annotation ({self.name}): {add_annotation_output['Code']}")
+            console_logger.info(f"Adding annotation for class: {ann['classification']}")
             text_logger.info(f"Added annotation for: {self.name}.")
             text_logger.info(f"{add_annotation_output}")
 

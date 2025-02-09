@@ -6,6 +6,7 @@ import numpy as np
 from shapely.wkt import loads
 from shapely.geometry import mapping
 from shapely.geometry import box as Box
+from shapely.validation import make_valid
 from shapely.geometry import (
     Point,
     Polygon,
@@ -32,7 +33,7 @@ from shapely.prepared import prep as prep_geom_for_query
 # from shapely.geometry import shape as Shape
 # from shapely.ops import unary_union
 # from shapely import wkt
-# from shapely.validation import make_valid
+
 # from shapely.strtree import STRtree
 
 class GeomStats():

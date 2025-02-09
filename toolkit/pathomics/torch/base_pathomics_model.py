@@ -1,5 +1,6 @@
 import h5py
 import geojson
+import warnings
 import numpy as np
 from pathlib import Path
 from typing import Optional
@@ -16,7 +17,7 @@ from toolkit.system.storage.data_io_tools import h5, save_geojson
 from toolkit.geometry.cv2_tools import get_contours, get_shapely_poly
 
 from toolkit.geometry.shapely_tools import MultiPolygon
-from toolkit.geometry.shapely_tools import get_box, geom_to_geojson, loads
+from toolkit.geometry.shapely_tools import get_box, geom_to_geojson, loads, make_valid
 
 
 class BasePathomicsModel(Slicer, ABC):
@@ -214,7 +215,18 @@ class BasePathomicsModel(Slicer, ABC):
                 iterator.set_description(
                     f"Processing prediction for {key.capitalize()}"
                 )
-            wkt_dict[key] = MultiPolygon(value).buffer(0).wkt
+            #wkt_dict[key] = MultiPolygon(value).buffer(0).wkt
+
+            try:
+                multipolygon = MultiPolygon(value)
+
+                multipolygon = multipolygon.buffer(0)
+                if not multipolygon.is_valid:
+                    multipolygon = make_valid(multipolygon) 
+                wkt_dict[key] = multipolygon.wkt
+            except Exception as e:
+                warnings.warn(f"Skipping {key} due to geometry error: {e}")
+                continue  
 
         h5.save_wkt_dict(wkt_dict, self.processed_predictions_path)
 
