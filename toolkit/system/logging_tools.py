@@ -44,7 +44,7 @@ class Logger:
         """
         if add_timestamp:
             timestamp = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
-            name = f"{name}_{timestamp.replace(' ', '_')}"
+            name = f"{name}_{timestamp.replace(' ', '_').replace(':', '-')}"
 
         self.logger = logging.getLogger(name)
         self.logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all levels
