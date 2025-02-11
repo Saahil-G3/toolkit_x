@@ -24,7 +24,7 @@ text_logger = Logger(
     add_timestamp=True,
 ).get_logger()
 
-console_logger = Logger(name="pathomation").get_logger()
+console_logger = Logger(name="pathomation", log_folder='logs/pathomation').get_logger()
 
 from .base_wsi import BaseWSI
 
