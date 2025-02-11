@@ -7,8 +7,10 @@ import pandas as pd
 from pathlib import Path
 from tqdm.auto import tqdm
 from pma_python import core
+from collections import defaultdict
 from typing import Union, List, Optional
 
+from toolkit.geometry.shapely_tools import loads
 from toolkit.geometry.shapely_tools import Polygon, MultiPolygon
 from toolkit.vision.colors import get_hex_colors, percentage_to_hex_alpha
 
@@ -56,7 +58,9 @@ class PathomationWSI(BaseWSI):
         self.level_count = len(self.zoomlevels)
         self._set_level_mpp_dict()
 
-        text_logger.info(f"Initiated session with sessionID: {self.sessionID} for WSI at {self._wsi_path}.")
+        text_logger.info(
+            f"Initiated session with sessionID: {self.sessionID} for WSI at {self._wsi_path}."
+        )
 
     def get_thumbnail_at_mpp(self, target_mpp=50):
         factor = self.factor_mpp(target_mpp)
@@ -134,9 +138,15 @@ class PathomationWSI(BaseWSI):
         stride_dims = slice_params["stride_dims"]
         context_dims = slice_params["context_dims"]
 
-        scaled_extraction_dims = int(extraction_dims[0] * factor1), int(extraction_dims[1] * factor1)
-        scaled_stride_dims = int(stride_dims[0] * factor1), int(stride_dims[1] * factor1)
-        scaled_context_dims = int(context_dims[0] * factor1), int(context_dims[1] * factor1)
+        scaled_extraction_dims = int(extraction_dims[0] * factor1), int(
+            extraction_dims[1] * factor1
+        )
+        scaled_stride_dims = int(stride_dims[0] * factor1), int(
+            stride_dims[1] * factor1
+        )
+        scaled_context_dims = int(context_dims[0] * factor1), int(
+            context_dims[1] * factor1
+        )
 
         max_x = x_lim + scaled_context_dims[0]
         max_y = y_lim + scaled_context_dims[1]
@@ -145,12 +155,12 @@ class PathomationWSI(BaseWSI):
         max_y_adj = max_y - scaled_extraction_dims[1]
 
         for x in range(-scaled_context_dims[0], max_x, scaled_stride_dims[0]):
-            #x_clipped = min(x, max_x_adj)
+            # x_clipped = min(x, max_x_adj)
             x_clipped = max(0, min(x, max_x_adj))
 
             for y in range(-scaled_context_dims[1], max_y, scaled_stride_dims[1]):
-                #y_clipped = min(y, max_y_adj)
-                y_clipped = max(0, min(y, max_y_adj)) 
+                # y_clipped = min(y, max_y_adj)
+                y_clipped = max(0, min(y, max_y_adj))
 
                 coordinates.append(((x_clipped, y_clipped), False))
         return coordinates
@@ -189,7 +199,9 @@ class PathomationWSI(BaseWSI):
             sessionID=self.sessionID,
         )
 
-        console_logger.info(f"Add annotation ({self.name}): {add_annotation_output['Code']}")
+        console_logger.info(
+            f"Add annotation ({self.name}): {add_annotation_output['Code']}"
+        )
         text_logger.info(f"Added annotation for: {self.name}.")
         text_logger.info(f"{add_annotation_output}")
 
@@ -256,7 +268,9 @@ class PathomationWSI(BaseWSI):
                 sessionID=self.sessionID,
             )
 
-            console_logger.info(f"Add annotation ({self.name}): {add_annotation_output['Code']}")
+            console_logger.info(
+                f"Add annotation ({self.name}): {add_annotation_output['Code']}"
+            )
             console_logger.info(f"Adding annotation for class: {ann['classification']}")
             text_logger.info(f"Added annotation for: {self.name}.")
             text_logger.info(f"{add_annotation_output}")
@@ -280,6 +294,54 @@ class PathomationWSI(BaseWSI):
             console_logger.info(f"Cleared annotation at layer {layerID}.")
         else:
             console_logger.warning(f"Unable to clear annotation at layer {layerID}.")
+
+    def print_annotator_report(self):
+        anns = core.get_annotations(
+            slideRef=self._slideRef, sessionID=self.sessionID, verify=True
+        )
+        ann_data = defaultdict(lambda: defaultdict(set))
+
+        for ann in anns:
+            ann_data[ann["AuditCreatedBy"]]["classifictaion"].add(ann["Classification"])
+            ann_data[ann["AuditCreatedBy"]]["notes"].add(ann["Notes"])
+
+        for annotator, annotator_data in ann_data.items():
+            print(f"----{annotator}----")
+            for data_name, data in annotator_data.items():
+                print(f"{data_name}:{data}")
+            print("\n")
+
+    def query_annotator_anns(
+        self, query_annotator, query_classification=None, query_notes=None
+    ):
+        anns = core.get_annotations(
+            slideRef=self._slideRef, sessionID=self.sessionID, verify=True
+        )
+        queried_anns = []
+        for ann in anns:
+            if ann["AuditCreatedBy"] == query_annotator:
+                queried_anns.append(ann)
+
+        if query_classification is not None:
+            queried_anns = [
+                ann
+                for ann in queried_anns
+                if ann["Classification"] == query_classification
+            ]
+
+        if query_notes is not None:
+            queried_anns = [ann for ann in queried_anns if ann["Notes"] == query_notes]
+
+        return queried_anns
+
+    def get_ann_region(self, ann, scale):
+        geom = loads(ann["Geometry"])
+        minx, miny, maxx, maxy = geom.bounds
+        width = maxx - minx
+        height = maxy - miny
+
+        region = self._get_region(x=minx, y=miny, w=width, h=height, scale=scale)
+        return region
 
     @staticmethod
     def get_pathomation_sessionID(pmacoreURL, pmacoreUsername, pmacorePassword):
