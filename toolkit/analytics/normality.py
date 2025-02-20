@@ -8,7 +8,7 @@ from scipy.stats import shapiro, kstest, normaltest, jarque_bera, anderson, norm
 
 
 class Normality:
-
+    
     def __init__(self):
         self._implemented_tests = [
             "shapiro",
@@ -31,7 +31,7 @@ class Normality:
         self._mean = np.mean(self._data)
         self._std = np.std(self._data, ddof=self._ddof)
 
-    def get_full_normality_report(self):
+    def get_normality_report_full(self):
         self._normality_report = []
 
         self._normality_report.append(self._shapiro())
@@ -42,6 +42,23 @@ class Normality:
         self._normality_report.append(self._lilliefors())
 
         return self._normality_report
+
+    def get_normality_report_default(self):
+        """
+        Generates a normality report for the dataset using either the Shapiro-Wilk test or the Kolmogorov-Smirnov test,
+        depending on the size of the dataset.
+    
+        This method automatically selects the appropriate normality test based on the sample size:
+        - If the dataset has 50 or fewer observations, the Shapiro-Wilk test is used.
+        - If the dataset has more than 50 observations, the Kolmogorov-Smirnov test is used.
+    
+        Returns:
+            dict: A dictionary containing the results of the
+        """
+        if len(self._data) <=50:
+            return self._shapiro()
+        else:
+            return self._ks()
 
     def get_normality_report(self, test_type):
         """
@@ -127,7 +144,7 @@ class Normality:
         temp_dict = {}
         temp_dict["test_type"] = "Anderson-Darling"
         temp_dict["stat"] = anderson_stat
-        temp_dict["p"] = "N/A"
+        temp_dict["p"] = "Based On Anderson Critical Value"
         temp_dict["normal"] = anderson_normal
         temp_dict["recommended_sample_size"] = ">20"
 
@@ -175,9 +192,9 @@ class Normality:
         return temp_dict
 
     @staticmethod
-    def qq_plot(data, save_path=None, plot=False, figsize=(10, 5)):
+    def qq_plot(data, save_path=None, plot=True, figsize=(10, 5)):
         plt.figure(figsize=figsize)
-        stats.probplot(data, dist="norm", plot=plt)
+        probplot(data, dist="norm", plot=plt)
 
         if save_path is not None:
             plt.savefig(save_path)
