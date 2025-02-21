@@ -27,7 +27,7 @@ class Normality:
         self._alpha = alpha
         self._ddof = ddof  # Set 0 for polulation
 
-        self._data = data
+        self._data = data.copy().dropna()
         self._mean = np.mean(self._data)
         self._std = np.std(self._data, ddof=self._ddof)
 

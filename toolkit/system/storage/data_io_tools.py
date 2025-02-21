@@ -1,14 +1,43 @@
-from pathlib import Path
-
+import csv
 import yaml
 import h5py
 import pickle
 import geojson
+from pathlib import Path
 
 from toolkit.system.logging_tools import Logger
 
 logger = Logger(name="data_io_tools", log_folder="./logs").get_logger()
 
+class CSVWriter:
+    def __init__(self, file_path, fieldnames=None, replace=False, df=None, supress_warnings=False):
+        self.file_path = Path(file_path) if isinstance(file_path, str) else file_path
+        self.fieldnames = fieldnames
+        self.df = df
+
+        if self.fieldnames is None and self.df is None:
+            raise ValueError("Both fieldnames and df can't be None.")
+
+        if self.fieldnames is None:
+           self.fieldnames =  self.df.columns.to_list()
+
+        if not self.file_path.exists() or replace:
+            with open(self.file_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+                writer.writeheader()
+        else:
+            if not supress_warnings:
+                logger.warning(f"File already exists at {self.file_path}")
+
+    def write(self, data_dict):
+        with open(self.file_path, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self.fieldnames)
+            writer.writerow(data_dict)
+
+    def write_df_data(self):
+        data_dicts = self.df.to_dict(orient='records')
+        for data_dict in data_dicts:
+            self.write(data_dict=data_dict)
 
 class H5:
     def __init__(self):
