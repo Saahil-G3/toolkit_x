@@ -5,3 +5,6 @@ git push origin main --force
 
 git ls-files | grep '.ipynb_checkpoints'
 git ls-files | grep '__pycache__'
+
+git config --global user.email "gazisaahil@gmail.com"
+git config --global user.name "Saahil"
