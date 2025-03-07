@@ -105,21 +105,21 @@ class Cleaner:
 
         logger.info(f"Column report created at {self._paths['col_report']}")
 
-    def _sort_cols(self):
-        self._all_col_names = self.df.columns.tolist()
-        self.sorted_col_names = {}
-        self.sorted_col_names["num"] = self.df.select_dtypes(
-            include=["number"]
-        ).columns.tolist()
-        self.sorted_col_names["cat"] = self.df.select_dtypes(
-            include=["object", "category"]
-        ).columns.tolist()
-        self.sorted_col_names["datetime"] = self.df.select_dtypes(
-            include=["datetime"]
-        ).columns.tolist()
-        self.sorted_col_names["other"] = self.df.select_dtypes(
-            exclude=["number", "object", "category", "datetime"]
-        ).columns.tolist()
+    # def _sort_cols(self):
+    #     self._all_col_names = self.df.columns.tolist()
+    #     self.sorted_col_names = {}
+    #     self.sorted_col_names["num"] = self.df.select_dtypes(
+    #         include=["number"]
+    #     ).columns.tolist()
+    #     self.sorted_col_names["cat"] = self.df.select_dtypes(
+    #         include=["object", "category"]
+    #     ).columns.tolist()
+    #     self.sorted_col_names["datetime"] = self.df.select_dtypes(
+    #         include=["datetime"]
+    #     ).columns.tolist()
+    #     self.sorted_col_names["other"] = self.df.select_dtypes(
+    #         exclude=["number", "object", "category", "datetime"]
+    #     ).columns.tolist()
 
     def _initialize_cleaner_paths(self, make_df_dir):
 
@@ -161,114 +161,114 @@ class Cleaner:
             self._dirs["col_report_clean"] / f"col_report_{self.df_name}.xlsx"
         )
 
-    def _get_overview_sheet(self):
-        overview_sheet = []
-        for key, value in self.sorted_col_names.items():
-            temp_dict = {}
-            temp_dict["col_type"] = key
-            temp_dict["n_col_names"] = len(value)
-            overview_sheet.append(temp_dict)
+    # def _get_overview_sheet(self):
+    #     overview_sheet = []
+    #     for key, value in self.sorted_col_names.items():
+    #         temp_dict = {}
+    #         temp_dict["col_type"] = key
+    #         temp_dict["n_col_names"] = len(value)
+    #         overview_sheet.append(temp_dict)
 
-        temp_dict = {}
-        temp_dict["col_type"] = "identifiers"
-        temp_dict["n_col_names"] = 0
-        overview_sheet.append(temp_dict)
+    #     temp_dict = {}
+    #     temp_dict["col_type"] = "identifiers"
+    #     temp_dict["n_col_names"] = 0
+    #     overview_sheet.append(temp_dict)
 
-        temp_dict = {}
-        temp_dict["col_type"] = "Total"
-        temp_dict["n_col_names"] = len(self._all_col_names)
-        overview_sheet.append(temp_dict)
+    #     temp_dict = {}
+    #     temp_dict["col_type"] = "Total"
+    #     temp_dict["n_col_names"] = len(self._all_col_names)
+    #     overview_sheet.append(temp_dict)
 
-        overview_sheet = pd.DataFrame(overview_sheet)
+    #     overview_sheet = pd.DataFrame(overview_sheet)
 
-        for col_type, col_names in self.sorted_col_names.items():
-            overview_sheet, col_names = self._insert_col_in_df(
-                overview_sheet, col_names
-            )
-            overview_sheet[f"{col_type}_col_names"] = col_names
+    #     for col_type, col_names in self.sorted_col_names.items():
+    #         overview_sheet, col_names = self._insert_col_in_df(
+    #             overview_sheet, col_names
+    #         )
+    #         overview_sheet[f"{col_type}_col_names"] = col_names
 
-        identifier_cols = []
-        overview_sheet, identifier_cols = self._insert_col_in_df(
-            overview_sheet, identifier_cols
-        )
-        overview_sheet["identifier_cols"] = identifier_cols
+    #     identifier_cols = []
+    #     overview_sheet, identifier_cols = self._insert_col_in_df(
+    #         overview_sheet, identifier_cols
+    #     )
+    #     overview_sheet["identifier_cols"] = identifier_cols
 
-        overview_sheet, all_cols = self._insert_col_in_df(
-            overview_sheet, self._all_col_names
-        )
-        overview_sheet["all_cols"] = all_cols
+    #     overview_sheet, all_cols = self._insert_col_in_df(
+    #         overview_sheet, self._all_col_names
+    #     )
+    #     overview_sheet["all_cols"] = all_cols
 
-        return overview_sheet
+    #     return overview_sheet
 
-    def _get_num_sheet(self):
-        num_col_names = self.sorted_col_names["num"]
+    # def _get_num_sheet(self):
+    #     num_col_names = self.sorted_col_names["num"]
 
-        num_sheet = []
-        for num_col_name in num_col_names:
-            col = self.df[num_col_name]
-            temp_dict = {}
-            temp_dict["col_name"] = num_col_name
-            temp_dict["n_observations"] = len(col)
-            temp_dict["min"] = col.min()
-            temp_dict["max"] = col.max()
-            temp_dict["median"] = col.median()
-            temp_dict["q1"] = col.quantile(0.25)
-            temp_dict["q3"] = col.quantile(0.75)
-            temp_dict["mean"] = col.mean()
-            temp_dict["std"] = col.std()
-            num_sheet.append(temp_dict)
-        num_sheet = pd.DataFrame(num_sheet)
+    #     num_sheet = []
+    #     for num_col_name in num_col_names:
+    #         col = self.df[num_col_name]
+    #         temp_dict = {}
+    #         temp_dict["col_name"] = num_col_name
+    #         temp_dict["n_observations"] = len(col)
+    #         temp_dict["min"] = col.min()
+    #         temp_dict["max"] = col.max()
+    #         temp_dict["median"] = col.median()
+    #         temp_dict["q1"] = col.quantile(0.25)
+    #         temp_dict["q3"] = col.quantile(0.75)
+    #         temp_dict["mean"] = col.mean()
+    #         temp_dict["std"] = col.std()
+    #         num_sheet.append(temp_dict)
+    #     num_sheet = pd.DataFrame(num_sheet)
 
-        num_edit_sheet = []
-        for num_col_name in num_col_names:
-            temp_dict = {}
-            temp_dict["col_name"] = num_col_name
-            temp_dict["numerical"] = True
-            temp_dict["add_to_identifiers"] = pd.NA
-            temp_dict["add_to_categorical"] = pd.NA
-            temp_dict["remove_from_analysis"] = pd.NA
-            temp_dict["rename_to"] = pd.NA
-            num_edit_sheet.append(temp_dict)
-        num_edit_sheet = pd.DataFrame(num_edit_sheet)
+    #     num_edit_sheet = []
+    #     for num_col_name in num_col_names:
+    #         temp_dict = {}
+    #         temp_dict["col_name"] = num_col_name
+    #         temp_dict["numerical"] = True
+    #         temp_dict["add_to_identifiers"] = pd.NA
+    #         temp_dict["add_to_categorical"] = pd.NA
+    #         temp_dict["remove_from_analysis"] = pd.NA
+    #         temp_dict["rename_to"] = pd.NA
+    #         num_edit_sheet.append(temp_dict)
+    #     num_edit_sheet = pd.DataFrame(num_edit_sheet)
 
-        return num_sheet, num_edit_sheet
+    #     return num_sheet, num_edit_sheet
 
-    def _get_cat_sheet(self):
-        cat_sheet = pd.DataFrame()
-        cat_col_names = self.sorted_col_names["cat"]
+    # def _get_cat_sheet(self):
+    #     cat_sheet = pd.DataFrame()
+    #     cat_col_names = self.sorted_col_names["cat"]
 
-        for cat_col_name in cat_col_names:
-            col = self.df[cat_col_name]
-            value_counts = col.value_counts()
+    #     for cat_col_name in cat_col_names:
+    #         col = self.df[cat_col_name]
+    #         value_counts = col.value_counts()
 
-            categories = value_counts.keys().to_list()
-            counts = value_counts.values.tolist()
+    #         categories = value_counts.keys().to_list()
+    #         counts = value_counts.values.tolist()
 
-            cat_sheet, categories = self._insert_col_in_df(cat_sheet, categories)
-            cat_sheet[cat_col_name] = categories
+    #         cat_sheet, categories = self._insert_col_in_df(cat_sheet, categories)
+    #         cat_sheet[cat_col_name] = categories
 
-            if len(categories) == len(counts):
-                cat_sheet[f"(Counts) {cat_col_name}"] = counts
-            else:
-                cat_sheet, counts = self._insert_col_in_df(cat_sheet, counts)
-                cat_sheet[f"(Counts) {cat_col_name}"] = counts
+    #         if len(categories) == len(counts):
+    #             cat_sheet[f"(Counts) {cat_col_name}"] = counts
+    #         else:
+    #             cat_sheet, counts = self._insert_col_in_df(cat_sheet, counts)
+    #             cat_sheet[f"(Counts) {cat_col_name}"] = counts
 
-            cat_sheet, empty_col = self._insert_col_in_df(cat_sheet, [pd.NA])
-            cat_sheet[f"(RenameDict) {cat_col_name}"] = empty_col
+    #         cat_sheet, empty_col = self._insert_col_in_df(cat_sheet, [pd.NA])
+    #         cat_sheet[f"(RenameDict) {cat_col_name}"] = empty_col
 
-        cat_edit_sheet = []
-        for num_col_name in cat_col_names:
-            temp_dict = {}
-            temp_dict["col_name"] = num_col_name
-            temp_dict["categorical"] = True
-            temp_dict["add_to_identifiers"] = pd.NA
-            temp_dict["add_to_numerical"] = pd.NA
-            temp_dict["remove_from_analysis"] = pd.NA
-            temp_dict["rename_to"] = pd.NA
-            cat_edit_sheet.append(temp_dict)
-        cat_edit_sheet = pd.DataFrame(cat_edit_sheet)
+    #     cat_edit_sheet = []
+    #     for num_col_name in cat_col_names:
+    #         temp_dict = {}
+    #         temp_dict["col_name"] = num_col_name
+    #         temp_dict["categorical"] = True
+    #         temp_dict["add_to_identifiers"] = pd.NA
+    #         temp_dict["add_to_numerical"] = pd.NA
+    #         temp_dict["remove_from_analysis"] = pd.NA
+    #         temp_dict["rename_to"] = pd.NA
+    #         cat_edit_sheet.append(temp_dict)
+    #     cat_edit_sheet = pd.DataFrame(cat_edit_sheet)
 
-        return cat_sheet, cat_edit_sheet
+    #     return cat_sheet, cat_edit_sheet
 
     def _prepare_for_changes(self):
         self.df = pd.read_csv(self._paths["df"])
@@ -441,26 +441,26 @@ class Cleaner:
     def _create_clean_df(self):
         self.df.to_csv(self._paths["df_clean"], index=False)
 
-    def _get_clean_overview_sheet(self):
+    # def _get_clean_overview_sheet(self):
 
-        clean_overview_sheet = pd.DataFrame()
-        clean_overview_sheet["identifiers"] = self.identifiers
-        clean_overview_sheet, self.cat_col_names = self._insert_col_in_df(
-            clean_overview_sheet, self.cat_col_names
-        )
-        clean_overview_sheet["cat_col_names"] = self.cat_col_names
-        clean_overview_sheet, self.num_col_names = self._insert_col_in_df(
-            clean_overview_sheet, self.num_col_names
-        )
-        clean_overview_sheet["num_col_names"] = self.num_col_names
+    #     clean_overview_sheet = pd.DataFrame()
+    #     clean_overview_sheet["identifiers"] = self.identifiers
+    #     clean_overview_sheet, self.cat_col_names = self._insert_col_in_df(
+    #         clean_overview_sheet, self.cat_col_names
+    #     )
+    #     clean_overview_sheet["cat_col_names"] = self.cat_col_names
+    #     clean_overview_sheet, self.num_col_names = self._insert_col_in_df(
+    #         clean_overview_sheet, self.num_col_names
+    #     )
+    #     clean_overview_sheet["num_col_names"] = self.num_col_names
 
-        return clean_overview_sheet
+    #     return clean_overview_sheet
 
-    @staticmethod
-    def _insert_col_in_df(df, col):
-        if len(col) > len(df):
-            df = df.reindex(range(len(col)))
-            return df, col
-        else:
-            padded_data = col + [pd.NA] * (len(df) - len(col))
-            return df, padded_data
+    # @staticmethod
+    # def _insert_col_in_df(df, col):
+    #     if len(col) > len(df):
+    #         df = df.reindex(range(len(col)))
+    #         return df, col
+    #     else:
+    #         padded_data = col + [pd.NA] * (len(df) - len(col))
+    #         return df, padded_data
